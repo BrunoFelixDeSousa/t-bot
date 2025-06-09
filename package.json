@@ -19,10 +19,12 @@
   "license": "ISC",
   "packageManager": "pnpm@10.10.0",
   "dependencies": {
+    "bcryptjs": "^3.0.2",
     "dotenv": "^16.5.0",
     "drizzle-orm": "^0.44.2",
     "pg": "^8.16.0",
     "postgres": "^3.4.7",
+    "uuid": "^11.1.0",
     "winston": "^3.17.0",
     "zod": "^3.25.56"
   },
@@ -36,6 +38,6 @@
     "prettier": "^3.5.3",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",
-    "typescript-eslint": "^8.33.1"
+    "typescript-eslint": "^8.34.0"
   }
 }

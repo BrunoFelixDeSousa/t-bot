@@ -1,6 +1,6 @@
-import { config } from "@/config";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { config } from '@/config';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
 import * as schema from './schema/schema';
 
 // export const db = drizzle(sql, {
@@ -9,7 +9,11 @@ import * as schema from './schema/schema';
 // });
 
 const sql = postgres(config.database.url);
-export const db = drizzle({ client: sql, schema: schema, logger: config.app.environment === 'development' });
+export const db = drizzle({
+  client: sql,
+  schema: schema,
+  logger: config.app.environment === 'development',
+});
 
 export async function testConnection() {
   try {

@@ -1,8 +1,8 @@
-import { testConnection } from "@/database/connection";
-import { appLogger } from "@/utils/logger";
+import { testConnection } from '@/database/connection';
+import { appLogger } from '@/utils/logger';
 
 class Application {
-  async start() { 
+  async start() {
     try {
       appLogger.info('🚀 Iniciando aplicação...');
 
