@@ -6,19 +6,24 @@ import { isValidAmount } from '@/utils/helpers';
 import { logger } from '@/utils/logger';
 
 export class UserService {
-  async createUser(userData: CreateUserInput): Promise<User> {
+  async findOrCreateUser(userData: CreateUserInput): Promise<User> {
     try {
       const existingUser = await userRepository.findByTelegramId(
         userData.telegramId,
       );
       if (existingUser) {
-        throw new AppError('Usuário já existe', 400);
+        return existingUser; // Retorna usuário existente ao invés de erro
       }
 
-      return await userRepository.create(userData);
+      const newUser = await userRepository.create(userData);
+      logger.info('Novo usuário criado:', {
+        userId: newUser.id,
+        telegramId: newUser.telegramId,
+      });
+      
+      return newUser;
     } catch (error) {
-      if (error instanceof AppError) throw error;
-      logger.error('Erro em UserService.createUser:', error);
+      logger.error('Erro em UserService.findOrCreateUser:', error);
       throw new AppError('Erro interno do servidor', 500);
     }
   }
@@ -26,12 +31,8 @@ export class UserService {
   async getUserByTelegramId(telegramId: string): Promise<User | null> {
     try {
       const user = await userRepository.findByTelegramId(telegramId);
-      if (!user) {
-        throw new AppError('Usuário não encontrado', 404);
-      }
-      return user;
+      return user; // Retorna user ou null se não encontrar
     } catch (error) {
-      if (error instanceof AppError) throw error;
       logger.error('Erro em UserService.getUserByTelegramId:', error);
       throw new AppError('Erro interno do servidor', 500);
     }
@@ -118,6 +119,30 @@ export class UserService {
       if (error instanceof AppError) throw error;
       logger.error('Erro ao buscar transações do usuário:', error);
       throw new AppError('Erro interno do servidor', 500);
+    }
+  }
+
+  async checkSufficientBalance(userId: number, requiredAmount: string): Promise<boolean> {
+    try {
+      const user = await this.getUserById(userId);
+      if (!user) return false;
+      
+      const currentBalance = parseFloat(user.balance);
+      const required = parseFloat(requiredAmount);
+
+      return currentBalance >= required;
+    } catch (error) {
+      logger.error('Erro ao verificar saldo:', error);
+      return false;
+    }
+  }
+
+  async updateLastActivity(userId: number): Promise<void> {
+    try {
+      await userRepository.updateLastActivity(userId);
+    } catch (error) {
+      logger.error('Erro ao atualizar última atividade:', error);
+      // Não lança erro para não quebrar o fluxo principal
     }
   }
 }

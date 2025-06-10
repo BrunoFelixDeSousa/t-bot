@@ -19,7 +19,7 @@ export async function userMiddleware(ctx: GameContext, next: () => Promise<void>
 
     // Criar usuário se não existir
     if (!user) {
-      user = await userService.createUser({
+      user = await userService.findOrCreateUser({
         telegramId,
         firstName: ctx.from.first_name,
         lastName: ctx.from.last_name,

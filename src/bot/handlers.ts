@@ -25,17 +25,21 @@ export class BotHandlers {
     bot.command('profile', this.handleProfile.bind(this));
     bot.command('balance', this.handleBalance.bind(this));
 
-    // Handlers de texto
-    bot.hears(`${EMOJIS.GAME} Jogar`, this.handleGameMenu.bind(this));
-    bot.hears(`${EMOJIS.MONEY} Carteira`, this.handleWalletMenu.bind(this));
-    bot.hears(`${EMOJIS.TROPHY} Ranking`, this.handleRanking.bind(this));
-    bot.hears(`${EMOJIS.INFO} Perfil`, this.handleProfile.bind(this));
-    bot.hears('❓ Ajuda', this.handleHelp.bind(this));
+    // Callbacks do menu principal
+    bot.action('main_play', this.handleGameMenu.bind(this));
+    bot.action('main_wallet', this.handleWalletMenu.bind(this));
+    bot.action('main_ranking', this.handleRanking.bind(this));
+    bot.action('main_profile', this.handleProfile.bind(this));
+    bot.action('main_help', this.handleHelp.bind(this));
 
-    // Callbacks
+    // Callbacks de navegação
     bot.action('back_main', this.handleBackToMain.bind(this));
     bot.action('wallet_balance', this.handleWalletBalance.bind(this));
+    
+    // Callbacks de carteira
     bot.action(/^wallet_(.+)$/, this.handleWalletAction.bind(this));
+    
+    // Callbacks de jogos
     bot.action(/^game_(.+)$/, this.handleGameSelection.bind(this));
   }
 
@@ -83,7 +87,7 @@ export class BotHandlers {
       /balance - Ver seu saldo
 
       **Como Jogar:**
-      1. Use "${EMOJIS.GAME} Jogar" para escolher um jogo
+      1. Use "🎮 Jogar" para escolher um jogo
       2. Defina o valor da aposta
       3. Faça sua jogada
       4. Receba o resultado!
@@ -97,7 +101,16 @@ export class BotHandlers {
       Em caso de dúvidas, entre em contato com @suporte
     `;
 
-    await ctx.reply(helpMessage, { parse_mode: 'Markdown' });
+    if (ctx.callbackQuery) {
+      await ctx.editMessageText(helpMessage, { 
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [[{ text: '⬅️ Voltar', callback_data: 'back_main' }]]
+        }
+      });
+    } else {
+      await ctx.reply(helpMessage, { parse_mode: 'Markdown' });
+    }
   }
 
   async handleProfile(ctx: GameContext) {
@@ -123,7 +136,16 @@ export class BotHandlers {
         ${ctx.isAdmin ? '👑 **Administrador**' : ''}
       `;
 
-      await ctx.reply(profileMessage, { parse_mode: 'Markdown' });
+      if (ctx.callbackQuery) {
+        await ctx.editMessageText(profileMessage, { 
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [[{ text: '⬅️ Voltar', callback_data: 'back_main' }]]
+          }
+        });
+      } else {
+        await ctx.reply(profileMessage, { parse_mode: 'Markdown' });
+      }
     } catch (error) {
       logger.error('Error in profile handler:', error);
       await ctx.reply('❌ Erro ao carregar perfil.');
@@ -165,10 +187,17 @@ export class BotHandlers {
       Mais jogos em breve!
     `;
 
-    await ctx.reply(gameMessage, {
-      parse_mode: 'Markdown',
-      ...gameMenuKeyboard,
-    });
+    if (ctx.callbackQuery) {
+      await ctx.editMessageText(gameMessage, {
+        parse_mode: 'Markdown',
+        ...gameMenuKeyboard,
+      });
+    } else {
+      await ctx.reply(gameMessage, {
+        parse_mode: 'Markdown',
+        ...gameMenuKeyboard,
+      });
+    }
   }
 
   async handleWalletMenu(ctx: GameContext) {
@@ -185,10 +214,17 @@ export class BotHandlers {
       Saldo atual: **${formatCurrency(ctx.user?.balance || '0.00')}**
     `;
 
-    await ctx.reply(walletMessage, {
-      parse_mode: 'Markdown',
-      ...walletMenuKeyboard,
-    });
+    if (ctx.callbackQuery) {
+      await ctx.editMessageText(walletMessage, {
+        parse_mode: 'Markdown',
+        ...walletMenuKeyboard,
+      });
+    } else {
+      await ctx.reply(walletMessage, {
+        parse_mode: 'Markdown',
+        ...walletMenuKeyboard,
+      });
+    }
   }
 
   async handleRanking(ctx: GameContext) {
@@ -206,7 +242,16 @@ export class BotHandlers {
       Continue jogando para subir no ranking!
     `;
 
-    await ctx.reply(rankingMessage, { parse_mode: 'Markdown' });
+    if (ctx.callbackQuery) {
+      await ctx.editMessageText(rankingMessage, { 
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [[{ text: '⬅️ Voltar', callback_data: 'back_main' }]]
+        }
+      });
+    } else {
+      await ctx.reply(rankingMessage, { parse_mode: 'Markdown' });
+    }
   }
 
   async handleBackToMain(ctx: GameContext) {

@@ -76,4 +76,18 @@ export class UserRepository {
       throw new Error('Falha ao atualizar saldo do usuário');
     }
   }
+
+  async updateLastActivity(userId: number): Promise<boolean> {
+    try {
+      await db
+        .update(users)
+        .set({ lastActivity: new Date() })
+        .where(eq(users.id, userId));
+
+      return true;
+    } catch (error) {
+      logger.error(`Erro ao atualizar última atividade do usuário ${userId}:`, error);
+      throw new Error('Falha ao atualizar última atividade');
+    }
+  }
 }

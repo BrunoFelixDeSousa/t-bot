@@ -9,7 +9,7 @@ async function testPhase2() {
   try {
     // Teste 1: Criar usuário
     // console.log('1️⃣ Testando criação de usuário...');
-    // const newUser = await userService.createUser({
+    // const newUser = await userService.findOrCreateUser({
     //   telegramId: '999888777',
     //   firstName: 'Teste',
     //   lastName: 'User',
