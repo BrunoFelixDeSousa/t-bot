@@ -1,6 +1,6 @@
 import { config } from '@/config';
 import { logger } from '@/utils/logger';
-import { Telegraf } from 'telegraf';
+import { Telegraf, session } from 'telegraf';
 import { GameContext } from './context';
 import { BotHandlers } from './handlers';
 import { userMiddleware } from './middleware';
@@ -19,6 +19,12 @@ export class TelegramBot {
   }
 
   private setupMiddleware() {
+    // Session middleware
+    this.bot.use(session({
+      defaultSession: () => ({})
+    }));
+
+    // User middleware
     this.bot.use(userMiddleware);
   }
 

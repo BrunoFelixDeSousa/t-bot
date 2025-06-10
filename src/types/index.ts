@@ -1,5 +1,3 @@
-import { Context } from 'telegraf';
-
 export interface Config {
   telegram: {
     botToken: string;
@@ -15,11 +13,6 @@ export interface Config {
   admin: {
     telegramIds: number[];
   };
-}
-
-export interface GameContext extends Context {
-  user?: import('./user').User;
-  isAdmin?: boolean;
 }
 
 export class AppError extends Error {

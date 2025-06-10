@@ -2,11 +2,6 @@ import { EMOJIS } from '@/utils/constants';
 import { Markup } from 'telegraf';
 import { InlineKeyboardMarkup } from 'telegraf/typings/core/types/typegram';
 
-// export const mainMenuKeyboard = Markup.keyboard([
-//   [`${EMOJIS.GAME} Jogar`, `${EMOJIS.MONEY} Carteira`],
-//   [`${EMOJIS.TROPHY} Ranking`, `${EMOJIS.INFO} Perfil`],
-//   [`❓ Ajuda`]
-// ]).resize();
 export const mainMenuKeyboard = Markup.inlineKeyboard([
   [Markup.button.callback(`${EMOJIS.GAME} Jogar`, 'main_play')],
   [Markup.button.callback(`${EMOJIS.MONEY} Carteira`, 'main_wallet')],

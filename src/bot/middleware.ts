@@ -33,9 +33,12 @@ export async function userMiddleware(ctx: GameContext, next: () => Promise<void>
       });
     }
 
-    // Adicionar ao contexto
-    ctx.user = user;
-    ctx.isAdmin = config.admin.telegramIds.includes(ctx.from.id);
+    // Adicionar ao contexto seguindo a estrutura do projeto original
+    ctx.state = { 
+      ...ctx.state, 
+      user,
+      isAdmin: config.admin.telegramIds.includes(ctx.from.id)
+    };
 
     await next();
   } catch (error) {
@@ -45,7 +48,7 @@ export async function userMiddleware(ctx: GameContext, next: () => Promise<void>
 }
 
 export function adminMiddleware(ctx: GameContext, next: () => Promise<void>) {
-  if (!ctx.isAdmin) {
+  if (!ctx.state?.isAdmin) {
     ctx.reply('❌ Acesso negado. Apenas administradores.');
     return Promise.resolve();
   }

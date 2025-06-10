@@ -48,7 +48,7 @@ export class BotHandlers {
       const welcomeMessage = `
         🎮 **Bem-vindo ao Game Bot!**
 
-        Olá ${ctx.user?.firstName || 'jogador'}!
+        Olá ${ctx.state?.user?.firstName || 'jogador'}!
 
         Este bot oferece diversos jogos onde você pode apostar e ganhar prêmios.
 
@@ -67,8 +67,8 @@ export class BotHandlers {
       });
 
       logger.info('User started bot', {
-        userId: ctx.user?.id,
-        telegramId: ctx.user?.telegramId,
+        userId: ctx.state?.user?.id,
+        telegramId: ctx.state?.user?.telegramId,
       });
     } catch (error) {
       logger.error('Error in start handler:', error);
@@ -115,25 +115,26 @@ export class BotHandlers {
 
   async handleProfile(ctx: GameContext) {
     try {
-      if (!ctx.user) {
+      if (!ctx.state?.user) {
         await ctx.reply('❌ Erro: Usuário não encontrado');
         return;
       }
 
+      const user = ctx.state.user;
       const profileMessage = `
         👤 **Seu Perfil**
 
         **Informações:**
-        • Nome: ${ctx.user.firstName} ${ctx.user.lastName || ''}
-        • Username: @${ctx.user.username || 'não definido'}
-        • ID: ${ctx.user.telegramId}
+        • Nome: ${user.firstName} ${user.lastName || ''}
+        • Username: @${user.username || 'não definido'}
+        • ID: ${user.telegramId}
 
         **Estatísticas:**
-        • Saldo atual: ${formatCurrency(ctx.user.balance)}
-        • Status: ${ctx.user.status === 'active' ? '✅ Ativo' : '❌ Inativo'}
-        • Membro desde: ${ctx.user.createdAt.toLocaleDateString('pt-BR')}
+        • Saldo atual: ${formatCurrency(user.balance)}
+        • Status: ${user.status === 'active' ? '✅ Ativo' : '❌ Inativo'}
+        • Membro desde: ${user.createdAt.toLocaleDateString('pt-BR')}
 
-        ${ctx.isAdmin ? '👑 **Administrador**' : ''}
+        ${ctx.state?.isAdmin ? '👑 **Administrador**' : ''}
       `;
 
       if (ctx.callbackQuery) {
@@ -154,7 +155,7 @@ export class BotHandlers {
 
   async handleBalance(ctx: GameContext) {
     try {
-      if (!ctx.user) {
+      if (!ctx.state?.user) {
         await ctx.reply('❌ Erro: Usuário não encontrado');
         return;
       }
@@ -162,7 +163,7 @@ export class BotHandlers {
       const balanceMessage = `
         💰 **Seu Saldo**
 
-        Saldo atual: **${formatCurrency(ctx.user.balance)}**
+        Saldo atual: **${formatCurrency(ctx.state.user.balance)}**
 
         Use "${EMOJIS.MONEY} Carteira" para depositar, sacar ou ver o histórico.
       `;
@@ -211,7 +212,7 @@ export class BotHandlers {
       • **Sacar** - Retire seus ganhos
       • **Histórico** - Veja suas transações
 
-      Saldo atual: **${formatCurrency(ctx.user?.balance || '0.00')}**
+      Saldo atual: **${formatCurrency(ctx.state?.user?.balance || '0.00')}**
     `;
 
     if (ctx.callbackQuery) {
@@ -271,10 +272,10 @@ export class BotHandlers {
     const balanceMessage = `
       💰 **Saldo Detalhado**
 
-      Saldo atual: **${formatCurrency(ctx.user?.balance || '0.00')}**
+      Saldo atual: **${formatCurrency(ctx.state?.user?.balance || '0.00')}**
 
       • Última atualização: ${new Date().toLocaleString('pt-BR')}
-      • Status da conta: ${ctx.user?.status === 'active' ? '✅ Ativa' : '❌ Inativa'}
+      • Status da conta: ${ctx.state?.user?.status === 'active' ? '✅ Ativa' : '❌ Inativa'}
 
       Use os botões abaixo para gerenciar sua carteira.
     `;
