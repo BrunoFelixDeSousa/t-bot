@@ -1,23 +1,26 @@
-import { Config } from '@/types';
+import { Config } from '../types';
 
-// Load environment variables from .env file
 export const config: Config = {
+  telegram: {
+    botToken: process.env.BOT_TOKEN!,
+    botUsername: process.env.BOT_USERNAME!,
+  },
   app: {
     environment: process.env.NODE_ENV || 'development',
-    port: Number(process.env.PORT || '3000'),
+    port: parseInt(process.env.PORT || '3000'),
   },
   database: {
     url: process.env.DATABASE_URL!,
   },
   admin: {
-    telegramIds: process.env.ADMIN_TELEGRAM_IDS
-      ? [Number(process.env.ADMIN_TELEGRAM_IDS)]
+    telegramIds: process.env.ADMIN_TELEGRAM_ID
+      ? [parseInt(process.env.ADMIN_TELEGRAM_ID)]
       : [],
   },
 };
 
-// Validate required environment variables
-const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
+// Validação atualizada
+const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET', 'BOT_TOKEN', 'BOT_USERNAME'];
 
 for (const envVar of requiredEnvVars) {
   if (!process.env[envVar]) {
