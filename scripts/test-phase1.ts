@@ -54,9 +54,7 @@ async function testPhase1() {
   // Teste 4: Configurações do banco de dados
   console.log('4️⃣ Testando configurações do banco...');
   try {
-    console.log(`   Host: ${config.database.host}`);
-    console.log(`   Port: ${config.database.port}`);
-    console.log(`   Database: ${config.database.name}`);
+    console.log(`   URL: ${config.database.url}`);
     console.log('   ✅ Configurações do banco OK\n');
   } catch (error) {
     console.error('❌ Erro nas configurações do banco:', error);
