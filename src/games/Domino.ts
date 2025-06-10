@@ -2,9 +2,26 @@ import { DominoGameState, DominoPiece, GameResult } from '../types/game';
 import { logger } from '../utils/logger';
 import { BaseGame } from './BaseGame';
 
+/**
+ * Implementação do jogo de Dominó multiplayer.
+ * 
+ * Gerencia um jogo completo de dominó com 28 peças (0-0 até 6-6),
+ * distribuição automática de mãos, validação de jogadas e determinação
+ * de vencedores baseada em pontuação e peças restantes.
+ * 
+ * @extends BaseGame
+ */
 export class Domino extends BaseGame {
+  /** Estado completo do jogo incluindo deck, mãos dos jogadores e mesa */
   private gameState: DominoGameState;
 
+  /**
+   * Inicializa um novo jogo de Dominó.
+   * 
+   * @param betAmount - Valor da aposta em reais
+   * @param player1Id - ID do primeiro jogador
+   * @param player2Id - ID do segundo jogador
+   */
   constructor(betAmount: number, player1Id: number, player2Id: number) {
     super('domino', betAmount);
     this.gameState = this.initializeGameState(player1Id, player2Id);
@@ -12,7 +29,15 @@ export class Domino extends BaseGame {
   }
 
   /**
-   * Criar deck completo de dominó (28 peças: 0-0 até 6-6)
+   * Cria deck completo de dominó com todas as 28 peças.
+   * 
+   * Gera peças de 0-0 até 6-6 seguindo as regras tradicionais do dominó,
+   * onde cada número aparece com todos os números maiores ou iguais a ele.
+   * O deck é automaticamente embaralhado após a criação.
+   * 
+   * @returns Array com todas as 28 peças embaralhadas
+   * 
+   * @private
    */
   private createDeck(): DominoPiece[] {
     const deck: DominoPiece[] = [];
@@ -39,7 +64,18 @@ export class Domino extends BaseGame {
   }
 
   /**
-   * Inicializar estado do jogo
+   * Inicializa o estado completo de um novo jogo de Dominó.
+   * 
+   * Cria o deck, distribui 7 peças para cada jogador, inicializa a mesa
+   * vazia e define o primeiro jogador. Prepara todas as estruturas
+   * necessárias para começar uma partida.
+   * 
+   * @param player1Id - ID do primeiro jogador
+   * @param player2Id - ID do segundo jogador
+   * 
+   * @returns Estado inicial completo do jogo
+   * 
+   * @private
    */
   private initializeGameState(player1Id: number, player2Id: number): DominoGameState {
     const deck = this.createDeck();
@@ -70,7 +106,16 @@ export class Domino extends BaseGame {
   }
 
   /**
-   * Validar se uma jogada é válida
+   * Valida se uma jogada é permitida pelas regras do dominó.
+   * 
+   * Verifica se o jogador possui a peça, se é a primeira jogada (qualquer peça válida)
+   * ou se a peça pode ser conectada com uma das pontas da mesa.
+   * 
+   * @param playerId - ID do jogador fazendo a jogada
+   * @param pieceId - ID da peça a ser jogada
+   * @param side - Lado da mesa onde jogar: 'left' ou 'right'
+   * 
+   * @returns true se a jogada é válida, false caso contrário
    */
   public validateMove(playerId: string, pieceId: string, side: 'left' | 'right'): boolean {
     try {
@@ -95,7 +140,16 @@ export class Domino extends BaseGame {
   }
 
   /**
-   * Fazer uma jogada
+   * Executa uma jogada no tabuleiro de dominó.
+   * 
+   * Valida a jogada, remove a peça da mão do jogador, coloca na mesa
+   * com orientação correta e alterna para o próximo jogador.
+   * 
+   * @param playerId - ID do jogador fazendo a jogada
+   * @param pieceId - ID da peça a ser jogada  
+   * @param side - Lado da mesa onde jogar: 'left' ou 'right'
+   * 
+   * @returns true se a jogada foi executada com sucesso, false caso contrário
    */
   public makeMove(playerId: string, pieceId: string, side: 'left' | 'right'): boolean {
     if (!this.validateMove(playerId, pieceId, side)) return false;
@@ -126,7 +180,16 @@ export class Domino extends BaseGame {
   }
 
   /**
-   * Colocar peça na mesa
+   * Posiciona uma peça na mesa com orientação correta.
+   * 
+   * Para a primeira peça, apenas a coloca na mesa. Para peças subsequentes,
+   * verifica a orientação necessária e vira a peça se preciso para que
+   * os números coincidam corretamente.
+   * 
+   * @param piece - Peça de dominó a ser colocada
+   * @param side - Lado da mesa onde colocar: 'left' ou 'right'
+   * 
+   * @private
    */
   private placePieceOnTable(piece: DominoPiece, side: 'left' | 'right') {
     if (this.gameState.table.length === 0) {
@@ -162,7 +225,12 @@ export class Domino extends BaseGame {
   }
 
   /**
-   * Alternar para próximo jogador
+   * Alterna o turno para o próximo jogador na sequência.
+   * 
+   * Utiliza rotação circular entre os jogadores registrados,
+   * garantindo que o jogo continue de forma alternada.
+   * 
+   * @private
    */
   private switchToNextPlayer() {
     const players = Object.keys(this.gameState.playerHands);
@@ -171,7 +239,15 @@ export class Domino extends BaseGame {
   }
 
   /**
-   * Obter jogadas disponíveis para um jogador
+   * Calcula todas as jogadas possíveis para um jogador.
+   * 
+   * Analisa as peças na mão do jogador e verifica quais podem ser
+   * jogadas em cada lado da mesa, retornando lista com peças e
+   * lados disponíveis para cada uma.
+   * 
+   * @param playerId - ID do jogador para analisar
+   * 
+   * @returns Array com peças e lados onde podem ser jogadas
    */
   public getAvailableMoves(playerId: string): Array<{ piece: DominoPiece; sides: ('left' | 'right')[] }> {
     const playerHand = this.gameState.playerHands[playerId];
@@ -206,7 +282,12 @@ export class Domino extends BaseGame {
   }
 
   /**
-   * Verificar se o jogo terminou
+   * Verifica se o jogo chegou ao fim por vitória ou bloqueio.
+   * 
+   * O jogo termina quando um jogador fica sem peças (vitória) ou quando
+   * ambos os jogadores não conseguem mais fazer jogadas (bloqueio).
+   * 
+   * @returns true se o jogo terminou, false se ainda está em andamento
    */
   public isGameOver(): boolean {
     // Verificar se alguém ficou sem peças
@@ -235,7 +316,16 @@ export class Domino extends BaseGame {
   }
 
   /**
-   * Determinar vencedor do jogo
+   * Determina o vencedor da partida e calcula prêmios.
+   * 
+   * Em caso de vitória por esvaziamento da mão, o jogador ganha o prêmio total.
+   * Em bloqueio, conta-se os pontos nas mãos e quem tiver menos ganha.
+   * Empate resulta em devolução das apostas.
+   * 
+   * @param player1Id - ID do primeiro jogador
+   * @param player2Id - ID do segundo jogador
+   * 
+   * @returns Resultado detalhado da partida com vencedor e prêmio
    */
   public determineWinner(player1Id: string, player2Id: string): GameResult {
     if (!this.isGameOver()) {
@@ -301,8 +391,17 @@ export class Domino extends BaseGame {
   }
 
   /**
-   * Implementação do método abstrato play (para compatibilidade)
+   * Implementação do método abstrato play (para compatibilidade com BaseGame).
+   * 
+   * No jogo de Dominó, este método não é utilizado diretamente pois o controle
+   * é feito através de jogadas individuais com makeMove(). Lança erro orientando
+   * o uso correto da API.
+   * 
+   * @param playerChoice - Parâmetro não utilizado (compatibilidade)
+   * 
+   * @throws {Error} Sempre lança erro orientando uso de makeMove()
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async play(playerChoice: unknown): Promise<GameResult> {
     // Para Domino, este método não é usado diretamente
     // O jogo é controlado através de makeMove()
@@ -310,21 +409,39 @@ export class Domino extends BaseGame {
   }
 
   /**
-   * Obter estado atual do jogo
+   * Obtém uma cópia do estado atual completo do jogo.
+   * 
+   * Retorna snapshot do estado incluindo deck, mãos dos jogadores,
+   * mesa, pontuações e controles de turno.
+   * 
+   * @returns Cópia do estado atual do jogo
    */
   public getGameState(): DominoGameState {
     return { ...this.gameState };
   }
 
   /**
-   * Definir estado do jogo (para restaurar do banco)
+   * Define o estado do jogo a partir de dados salvos.
+   * 
+   * Utilizado para restaurar partidas do banco de dados,
+   * permitindo continuidade de jogos em andamento.
+   * 
+   * @param state - Estado completo do jogo a ser restaurado
    */
   public setGameState(state: DominoGameState) {
     this.gameState = state;
   }
 
   /**
-   * Gerar interface visual simplificada
+   * Gera interface visual em texto para mostrar ao jogador.
+   * 
+   * Cria representação ASCII do tabuleiro, mostra a mão do jogador,
+   * indica de quem é o turno e lista jogadas possíveis de forma
+   * amigável para exibição no chat do Telegram.
+   * 
+   * @param forPlayerId - ID do jogador para quem gerar a interface
+   * 
+   * @returns String formatada com estado visual do jogo
    */
   public generateGameInterface(forPlayerId: string): string {
     let interface_text = `🎯 ═══════ DOMINÓ #${Date.now()} ═══════\n\n`;
@@ -382,7 +499,16 @@ export class Domino extends BaseGame {
   }
 
   /**
-   * Método estático para criar instância
+   * Método factory para criar nova instância de Dominó.
+   * 
+   * Alternativa estática ao construtor, oferecendo interface
+   * mais clara para criação de jogos.
+   * 
+   * @param betAmount - Valor da aposta em reais
+   * @param player1Id - ID do primeiro jogador
+   * @param player2Id - ID do segundo jogador
+   * 
+   * @returns Nova instância configurada do jogo Dominó
    */
   static create(betAmount: number, player1Id: number, player2Id: number): Domino {
     return new Domino(betAmount, player1Id, player2Id);

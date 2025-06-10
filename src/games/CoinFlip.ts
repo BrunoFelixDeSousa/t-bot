@@ -1,12 +1,26 @@
 import { COIN_FLIP_CHOICES, GameResult } from '../types/game';
 import { BaseGame } from './BaseGame';
 
+/**
+ * Implementação do jogo Cara ou Coroa
+ * Herda de BaseGame e implementa a lógica específica do jogo
+ */
 export class CoinFlip extends BaseGame {
+  /**
+   * Construtor da classe CoinFlip
+   * @param betAmount - Valor da aposta
+   */
   constructor(betAmount: number) {
     super('coin_flip', betAmount);
     this.validateBetAmount();
   }
 
+  /**
+   * Executa uma partida de Cara ou Coroa
+   * @param playerChoice - Escolha do jogador ('heads' ou 'tails')
+   * @returns Promise com o resultado do jogo
+   * @throws {Error} Se a escolha for inválida
+   */
   async play(playerChoice: 'heads' | 'tails'): Promise<GameResult> {
     // Validar escolha do jogador
     if (!['heads', 'tails'].includes(playerChoice)) {
@@ -33,11 +47,24 @@ export class CoinFlip extends BaseGame {
     return result;
   }
 
+  /**
+   * Obtém o emoji e label correspondentes à escolha
+   * @param choice - Escolha do jogador ou da casa
+   * @returns String formatada com emoji e label
+   */
   private getChoiceEmoji(choice: 'heads' | 'tails'): string {
     const choiceData = COIN_FLIP_CHOICES.find(c => c.choice === choice);
     return choiceData ? `${choiceData.emoji} ${choiceData.label}` : choice;
   }
 
+  /**
+   * Gera a mensagem de resultado formatada
+   * @param playerChoice - Escolha do jogador
+   * @param houseChoice - Escolha da casa
+   * @param isWin - Se o jogador ganhou
+   * @param prize - Valor do prêmio
+   * @returns Mensagem formatada do resultado
+   */
   private generateResultMessage(
     playerChoice: string,
     houseChoice: string,
@@ -60,12 +87,19 @@ export class CoinFlip extends BaseGame {
     }
   }
 
-  // Método estático para criar instância
+  /**
+   * Método estático para criar uma instância de CoinFlip
+   * @param betAmount - Valor da aposta
+   * @returns Nova instância de CoinFlip
+   */
   static create(betAmount: number): CoinFlip {
     return new CoinFlip(betAmount);
   }
 
-  // Método para obter informações do jogo
+  /**
+   * Retorna informações estáticas sobre o jogo
+   * @returns Objeto com informações do jogo
+   */
   static getGameInfo() {
     return {
       name: 'Cara ou Coroa',

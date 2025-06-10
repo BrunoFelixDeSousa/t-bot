@@ -7,13 +7,46 @@ import { CoinFlipGameData, CreateGameInput, DominoGameData, DominoMoveResult, Do
 import { logger } from '../utils/logger';
 import { UserService } from './user.service';
 
+/**
+ * Serviço responsável pela gestão completa do sistema de jogos multiplayer.
+ * 
+ * Gerencia a criação, execução e finalização de jogos como Coin Flip e Dominó,
+ * incluindo validações, processamento de apostas, distribuição de prêmios e
+ * manutenção do histórico de transações.
+ * 
+ * @class GameService
+ */
 export class GameService {
+  /** Instância do serviço de usuários para validações e operações de saldo */
   private userService: UserService;
 
+  /**
+   * Inicializa o serviço de jogos com suas dependências.
+   * 
+   * @constructor
+   */
   constructor() {
     this.userService = new UserService();
   }
 
+  /**
+   * Cria um novo jogo multiplayer no sistema.
+   * 
+   * Valida o usuário, suas limitações de jogos ativos, saldo disponível
+   * e processa a reserva da aposta para criação de uma partida multiplayer
+   * aguardando oponente.
+   * 
+   * @param userId - ID do usuário criador do jogo
+   * @param gameData - Dados de configuração do jogo (tipo, valor da aposta)
+   * 
+   * @returns Promise com os dados do jogo criado
+   * 
+   * @throws {AppError} 404 - Usuário não encontrado
+   * @throws {AppError} 400 - Máximo de jogos ativos excedido
+   * @throws {AppError} 400 - Saldo insuficiente
+   * @throws {AppError} 400 - Valor de aposta fora dos limites permitidos
+   * @throws {AppError} 500 - Erro interno do servidor
+   */
   async createGame(userId: number, gameData: CreateGameInput): Promise<Game> {
     try {
       // Validar usuário
@@ -87,6 +120,24 @@ export class GameService {
     }
   }
 
+  /**
+   * Executa uma partida de Coin Flip no modo single-player.
+   * 
+   * Valida o jogo, processa a escolha do jogador, executa a lógica
+   * da moeda e processa o resultado final com distribuição de prêmios.
+   * 
+   * @param gameId - ID do jogo a ser executado
+   * @param userId - ID do usuário jogador
+   * @param choice - Escolha do jogador: 'heads' (cara) ou 'tails' (coroa)
+   * 
+   * @returns Promise com o resultado da partida
+   * 
+   * @throws {AppError} 404 - Jogo não encontrado
+   * @throws {AppError} 403 - Usuário não é proprietário do jogo
+   * @throws {AppError} 400 - Jogo não está disponível para jogar
+   * @throws {AppError} 400 - Tipo de jogo inválido
+   * @throws {AppError} 500 - Erro interno do servidor
+   */
   async playCoinFlip(gameId: number, userId: number, choice: 'heads' | 'tails'): Promise<GameResult> {
     try {
       // Buscar jogo
@@ -136,6 +187,22 @@ export class GameService {
     }
   }
 
+  /**
+   * Processa o resultado de um jogo, atualizando saldos e criando transações.
+   * 
+   * Calcula prêmios, rake da casa, atualiza saldo do jogador e registra
+   * transações de ganho ou perda conforme o resultado obtido.
+   * 
+   * @param game - Dados do jogo a ser processado
+   * @param result - Resultado obtido na partida
+   * @param userId - ID do usuário que jogou
+   * 
+   * @returns Promise<void>
+   * 
+   * @throws {Error} Erro ao processar resultado do jogo
+   * 
+   * @private
+   */
   private async processGameResult(game: Game, result: GameResult, userId: number): Promise<void> {
     try {
       const betAmount = parseFloat(game.betAmount);
@@ -209,7 +276,23 @@ export class GameService {
   }
 
   /**
-   * Join an existing multiplayer game
+   * Permite que um usuário se junte a um jogo multiplayer existente.
+   * 
+   * Valida disponibilidade do jogo, saldo do usuário, desconta a aposta
+   * e ativa o jogo com dois jogadores prontos para jogar.
+   * 
+   * @param gameId - ID do jogo a ser entrado
+   * @param userId - ID do usuário que deseja entrar
+   * 
+   * @returns Promise com os dados do jogo atualizado
+   * 
+   * @throws {AppError} 404 - Jogo não encontrado
+   * @throws {AppError} 400 - Jogo não está mais disponível
+   * @throws {AppError} 400 - Usuário não pode entrar no próprio jogo
+   * @throws {AppError} 400 - Jogo expirado
+   * @throws {AppError} 404 - Usuário não encontrado
+   * @throws {AppError} 400 - Saldo insuficiente
+   * @throws {AppError} 500 - Erro interno do servidor
    */
   async joinGame(gameId: number, userId: number): Promise<Game> {
     try {
@@ -277,7 +360,19 @@ export class GameService {
   }
 
   /**
-   * Join an existing multiplayer game with notifications
+   * Permite entrar em um jogo com notificação automática ao criador.
+   * 
+   * Combina a funcionalidade de entrar no jogo com envio de notificação
+   * para informar o criador sobre a entrada de um novo jogador.
+   * 
+   * @param gameId - ID do jogo a ser entrado
+   * @param userId - ID do usuário que deseja entrar
+   * @param notificationService - Serviço opcional para envio de notificações
+   * 
+   * @returns Promise com os dados do jogo atualizado
+   * 
+   * @throws {AppError} Erros propagados do método joinGame()
+   * @throws {AppError} 500 - Erro interno ao processar notificação
    */
   async joinGameWithNotification(gameId: number, userId: number, notificationService?: { notifyPlayerJoined: (chatId: string, playerName: string, gameId: number) => Promise<boolean> }): Promise<Game> {
     try {
@@ -307,7 +402,17 @@ export class GameService {
   }
 
   /**
-   * Get available games waiting for players
+   * Busca jogos disponíveis aguardando jogadores.
+   * 
+   * Retorna lista de jogos no status 'waiting' que estão disponíveis
+   * para outros usuários entrarem, com filtro opcional por tipo de jogo.
+   * 
+   * @param gameType - Tipo de jogo para filtrar (opcional)
+   * @param limit - Número máximo de jogos a retornar (padrão: 10)
+   * 
+   * @returns Promise com array de jogos disponíveis
+   * 
+   * @throws {AppError} 500 - Erro ao buscar jogos disponíveis
    */
   async getAvailableGames(gameType?: string, limit: number = 10): Promise<Game[]> {
     try {
@@ -319,7 +424,21 @@ export class GameService {
   }
 
   /**
-   * Make a move in a multiplayer game
+   * Registra uma jogada em partida multiplayer ativa.
+   * 
+   * Valida participação do usuário, registra sua escolha no jogo
+   * e processa resultado final se ambos jogadores já fizeram suas jogadas.
+   * 
+   * @param gameId - ID do jogo ativo
+   * @param userId - ID do usuário fazendo a jogada
+   * @param choice - Escolha do jogador: 'heads' ou 'tails'
+   * 
+   * @returns Promise com resultado da jogada ou indicação de espera
+   * 
+   * @throws {AppError} 404 - Jogo não encontrado
+   * @throws {AppError} 403 - Usuário não é participante do jogo
+   * @throws {AppError} 400 - Jogo não está ativo
+   * @throws {AppError} 500 - Erro ao processar jogada
    */
   async makeMove(gameId: number, userId: number, choice: 'heads' | 'tails'): Promise<GameMoveResult> {
     try {
@@ -368,7 +487,20 @@ export class GameService {
   }
 
   /**
-   * Process multiplayer game result
+   * Processa o resultado final de uma partida multiplayer.
+   * 
+   * Determina vencedor baseado nas escolhas dos jogadores e resultado da moeda,
+   * calcula prêmios e rake, distribui valores e registra transações para ambos jogadores.
+   * 
+   * @param game - Dados do jogo a ser finalizado
+   * @param gameData - Estado atual do jogo com escolhas dos jogadores
+   * 
+   * @returns Promise com resultado detalhado da partida multiplayer
+   * 
+   * @throws {AppError} 400 - Jogador 2 não encontrado
+   * @throws {Error} Erro ao processar resultado multiplayer
+   * 
+   * @private
    */
   private async processMultiplayerResult(game: Game, gameData: CoinFlipGameData): Promise<MultiplayerGameResult> {
     try {
@@ -478,16 +610,41 @@ export class GameService {
     }
   }
 
+  /**
+   * Busca um jogo específico pelo seu ID.
+   * 
+   * @param gameId - ID do jogo a ser buscado
+   * 
+   * @returns Promise com dados do jogo ou null se não encontrado
+   */
   async getGameById(gameId: number): Promise<Game | null> {
     return await gameRepository.findById(gameId);
   }
 
+  /**
+   * Busca histórico de jogos de um usuário específico.
+   * 
+   * @param userId - ID do usuário
+   * @param limit - Número máximo de jogos a retornar (padrão: 20)
+   * 
+   * @returns Promise com array de jogos do usuário
+   */
   async getUserGames(userId: number, limit: number = 20): Promise<Game[]> {
     return await gameRepository.findByCreatorId(userId, limit);
   }
 
   /**
-   * Create a Domino game (multiplayer only)
+   * Cria um novo jogo de Dominó multiplayer.
+   * 
+   * Método específico para criação de jogos de Dominó, utilizando
+   * a funcionalidade base de criação de jogos multiplayer.
+   * 
+   * @param userId - ID do usuário criador
+   * @param betAmount - Valor da aposta em reais
+   * 
+   * @returns Promise com dados do jogo de Dominó criado
+   * 
+   * @throws {AppError} Erros propagados do método createGame()
    */
   async createDominoGame(userId: number, betAmount: number): Promise<Game> {
     return this.createGame(userId, {
@@ -498,7 +655,25 @@ export class GameService {
   }
 
   /**
-   * Make a move in a Domino game
+   * Executa uma jogada no jogo de Dominó.
+   * 
+   * Valida a jogada, atualiza estado do jogo, verifica fim de partida
+   * e processa resultado se o jogo terminou.
+   * 
+   * @param gameId - ID do jogo de Dominó
+   * @param userId - ID do usuário fazendo a jogada
+   * @param pieceId - ID da peça de dominó sendo jogada
+   * @param side - Lado do tabuleiro onde jogar: 'left' ou 'right'
+   * 
+   * @returns Promise com resultado da jogada
+   * 
+   * @throws {AppError} 404 - Jogo não encontrado
+   * @throws {AppError} 403 - Usuário não é participante do jogo
+   * @throws {AppError} 400 - Jogo não está ativo
+   * @throws {AppError} 400 - Tipo de jogo inválido
+   * @throws {AppError} 400 - Não é a vez do jogador
+   * @throws {AppError} 400 - Jogada inválida
+   * @throws {AppError} 500 - Erro interno ao processar jogada
    */
   async makeDominoMove(gameId: number, userId: number, pieceId: string, side: 'left' | 'right'): Promise<DominoMoveResult> {
     try {
@@ -581,7 +756,21 @@ export class GameService {
   }
 
   /**
-   * Get current state of a Domino game
+   * Obtém o estado atual de um jogo de Dominó.
+   * 
+   * Retorna estado completo do jogo, interface visual para o jogador
+   * e jogadas disponíveis para o turno atual.
+   * 
+   * @param gameId - ID do jogo de Dominó
+   * @param userId - ID do usuário solicitante
+   * 
+   * @returns Promise com estado completo do jogo
+   * 
+   * @throws {AppError} 404 - Jogo não encontrado
+   * @throws {AppError} 403 - Usuário não é participante do jogo
+   * @throws {AppError} 400 - Tipo de jogo inválido
+   * @throws {AppError} 400 - Estado do jogo não encontrado
+   * @throws {AppError} 500 - Erro interno ao obter estado
    */
   async getDominoGameState(gameId: number, userId: number): Promise<{ gameState: DominoGameData; gameInterface: string; availableMoves: Array<{ piece: DominoPiece; sides: ('left' | 'right')[] }> }> {
     try {
@@ -625,7 +814,19 @@ export class GameService {
   }
 
   /**
-   * Process Domino game result
+   * Processa o resultado final de uma partida de Dominó.
+   * 
+   * Calcula vencedor, prêmios, rake da casa e distribui valores.
+   * Trata casos especiais como empate com devolução das apostas.
+   * 
+   * @param game - Dados do jogo de Dominó
+   * @param result - Resultado obtido na partida
+   * 
+   * @returns Promise com resultado detalhado da partida
+   * 
+   * @throws {Error} Erro ao processar resultado do dominó
+   * 
+   * @private
    */
   private async processDominoResult(game: Game, result: GameResult): Promise<MultiplayerGameResult> {
     try {
@@ -754,28 +955,58 @@ export class GameService {
   // ==========================================
 
   /**
-   * Alias para createGame() - compatibilidade com projeto Game
+   * Alias para createGame() - mantém compatibilidade com projeto Game.
+   * 
+   * @param userId - ID do usuário criador
+   * @param gameData - Dados de configuração do jogo
+   * 
+   * @returns Promise com dados do jogo criado
+   * 
+   * @deprecated Use createGame() diretamente
    */
   async createMatch(userId: number, gameData: CreateGameInput): Promise<Game> {
     return this.createGame(userId, gameData);
   }
 
   /**
-   * Alias para joinGame() - compatibilidade com projeto Game
+   * Alias para joinGame() - mantém compatibilidade com projeto Game.
+   * 
+   * @param gameId - ID do jogo a ser entrado
+   * @param userId - ID do usuário
+   * 
+   * @returns Promise com dados do jogo atualizado
+   * 
+   * @deprecated Use joinGame() diretamente
    */
   async joinMatch(gameId: number, userId: number): Promise<Game> {
     return this.joinGame(gameId, userId);
   }
 
   /**
-   * Alias para getAvailableGames() - compatibilidade com projeto Game
+   * Alias para getAvailableGames() - mantém compatibilidade com projeto Game.
+   * 
+   * @param gameType - Tipo de jogo para filtrar
+   * @param limit - Número máximo de resultados
+   * 
+   * @returns Promise com jogos aguardando jogadores
+   * 
+   * @deprecated Use getAvailableGames() diretamente
    */
   async findWaitingMatches(gameType?: string, limit: number = 10): Promise<Game[]> {
     return this.getAvailableGames(gameType, limit);
   }
 
   /**
-   * Buscar partidas ativas do usuário - compatibilidade com projeto Game
+   * Busca partidas ativas do usuário - mantém compatibilidade com projeto Game.
+   * 
+   * Retorna jogos criados pelo usuário que estão com status 'active' ou 'waiting',
+   * útil para validar limites de jogos simultâneos.
+   * 
+   * @param userId - ID do usuário
+   * 
+   * @returns Promise com array de jogos ativos do usuário
+   * 
+   * @throws {AppError} 500 - Erro ao buscar partidas ativas
    */
   async findUserActiveMatches(userId: number): Promise<Game[]> {
     try {

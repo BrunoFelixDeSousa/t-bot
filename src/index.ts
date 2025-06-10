@@ -3,6 +3,10 @@ import { TelegramBot } from './bot';
 import { testConnection } from './database/connection';
 import { appLogger } from './utils/logger';
 
+/**
+ * Classe principal da aplicação que gerencia o bot do Telegram
+ * e a conexão com o banco de dados
+ */
 class Application {
   private bot: TelegramBot;
 
@@ -10,6 +14,10 @@ class Application {
     this.bot = new TelegramBot();
   }
 
+  /**
+   * Inicia a aplicação conectando ao banco de dados e iniciando o bot
+   * @throws {Error} Quando falha na conexão com o banco de dados
+   */
   async start() {
     try {
       appLogger.info('🚀 Iniciando aplicação...');
@@ -31,7 +39,15 @@ class Application {
     }
   }
 
+  /**
+   * Configura o encerramento gracioso da aplicação
+   * Escuta por sinais SIGTERM e SIGINT para encerrar adequadamente
+   */
   private setupGracefulShutdown() {
+    /**
+     * Função interna para processar o encerramento
+     * @param signal - Sinal recebido (SIGTERM ou SIGINT)
+     */
     const shutdown = async (signal: string) => {
       appLogger.info(`Recebido sinal ${signal}. Encerrando aplicação...`);
 
@@ -50,5 +66,6 @@ class Application {
   }
 }
 
+// Inicializar e executar a aplicação
 const app = new Application();
 app.start();

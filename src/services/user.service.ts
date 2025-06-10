@@ -5,7 +5,17 @@ import { CreateUserInput, User } from '@/types/user';
 import { isValidAmount } from '@/utils/helpers';
 import { logger } from '@/utils/logger';
 
+/**
+ * Serviço para gerenciamento de usuários
+ * Responsável por operações CRUD e lógica de negócio relacionada a usuários
+ */
 export class UserService {
+  /**
+   * Busca um usuário existente ou cria um novo
+   * @param userData - Dados do usuário para criação
+   * @returns Promise com o usuário encontrado ou criado
+   * @throws {AppError} Em caso de erro interno
+   */
   async findOrCreateUser(userData: CreateUserInput): Promise<User> {
     try {
       const existingUser = await userRepository.findByTelegramId(
@@ -28,6 +38,12 @@ export class UserService {
     }
   }
 
+  /**
+   * Busca um usuário pelo ID do Telegram
+   * @param telegramId - ID único do usuário no Telegram
+   * @returns Promise com o usuário ou null se não encontrado
+   * @throws {AppError} Em caso de erro interno
+   */
   async getUserByTelegramId(telegramId: string): Promise<User | null> {
     try {
       const user = await userRepository.findByTelegramId(telegramId);
@@ -38,6 +54,12 @@ export class UserService {
     }
   }
 
+  /**
+   * Busca um usuário pelo ID interno
+   * @param userId - ID único do usuário no banco
+   * @returns Promise com o usuário
+   * @throws {AppError} Se usuário não for encontrado ou erro interno
+   */
   async getUserById(userId: number): Promise<User> {
     try {
       const user = await userRepository.findById(userId);
@@ -52,6 +74,14 @@ export class UserService {
     }
   }
 
+  /**
+   * Atualiza o saldo de um usuário
+   * @param userId - ID do usuário
+   * @param amount - Valor a ser adicionado ou subtraído
+   * @param type - Tipo da operação ('add' ou 'subtract')
+   * @returns Promise<boolean> indicando sucesso da operação
+   * @throws {AppError} Se valor inválido, usuário não encontrado ou saldo insuficiente
+   */
   async updateUserBalance(
     userId: number,
     amount: string,
@@ -104,6 +134,13 @@ export class UserService {
     }
   }
 
+  /**
+   * Obtém o histórico de transações de um usuário
+   * @param userId - ID do usuário
+   * @param limit - Número máximo de transações (padrão: 20)
+   * @returns Promise com array de transações
+   * @throws {AppError} Em caso de erro interno
+   */
   async getUserTransactions(
     userId: number,
     limit: number = 20,
@@ -122,6 +159,12 @@ export class UserService {
     }
   }
 
+  /**
+   * Verifica se o usuário tem saldo suficiente para uma operação
+   * @param userId - ID do usuário
+   * @param requiredAmount - Valor necessário em string
+   * @returns Promise<boolean> indicando se tem saldo suficiente
+   */
   async checkSufficientBalance(userId: number, requiredAmount: string): Promise<boolean> {
     try {
       const user = await this.getUserById(userId);
@@ -137,6 +180,10 @@ export class UserService {
     }
   }
 
+  /**
+   * Atualiza a data da última atividade do usuário
+   * @param userId - ID do usuário
+   */
   async updateLastActivity(userId: number): Promise<void> {
     try {
       await userRepository.updateLastActivity(userId);
@@ -146,6 +193,12 @@ export class UserService {
     }
   }
 
+  /**
+   * Atualiza o chat ID de um usuário
+   * @param userId - ID do usuário
+   * @param chatId - Novo chat ID do Telegram
+   * @returns Promise<boolean> indicando sucesso da operação
+   */
   async updateUserChatId(userId: number, chatId: string): Promise<boolean> {
     try {
       await userRepository.updateChatId(userId, chatId);

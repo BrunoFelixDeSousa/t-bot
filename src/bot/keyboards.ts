@@ -2,6 +2,10 @@ import { BET_AMOUNTS, COIN_CHOICE_LABELS, EMOJIS } from '@/utils/constants';
 import { Markup } from 'telegraf';
 import { InlineKeyboardMarkup } from 'telegraf/typings/core/types/typegram';
 
+/**
+ * Teclado do menu principal do bot
+ * Contém as opções principais: Jogar, Carteira, Ranking, Perfil e Ajuda
+ */
 export const mainMenuKeyboard = Markup.inlineKeyboard([
   [Markup.button.callback(`${EMOJIS.GAME} Jogar`, 'main_play')],
   [Markup.button.callback(`${EMOJIS.MONEY} Carteira`, 'main_wallet')],
@@ -10,7 +14,10 @@ export const mainMenuKeyboard = Markup.inlineKeyboard([
   [Markup.button.callback(`❓ Ajuda`, 'main_help')],
 ]);
 
-
+/**
+ * Teclado do menu de jogos
+ * Lista todos os jogos disponíveis
+ */
 export const gameMenuKeyboard: Markup.Markup<InlineKeyboardMarkup> = Markup.inlineKeyboard([
   [Markup.button.callback('🪙 Cara ou Coroa', 'game_coin_flip')],
   [Markup.button.callback('✂️ Pedra/Papel/Tesoura', 'game_rock_paper_scissors')],
@@ -19,6 +26,10 @@ export const gameMenuKeyboard: Markup.Markup<InlineKeyboardMarkup> = Markup.inli
   [Markup.button.callback('⬅️ Voltar', 'back_main')]
 ]);
 
+/**
+ * Teclado do menu da carteira
+ * Opções para gerenciar saldo e transações
+ */
 export const walletMenuKeyboard: Markup.Markup<InlineKeyboardMarkup> = Markup.inlineKeyboard([
   [Markup.button.callback('💰 Ver Saldo', 'wallet_balance')],
   [Markup.button.callback('💳 Depositar', 'wallet_deposit')],
@@ -27,7 +38,10 @@ export const walletMenuKeyboard: Markup.Markup<InlineKeyboardMarkup> = Markup.in
   [Markup.button.callback('⬅️ Voltar', 'back_main')]
 ]);
 
-// Bet amount selection keyboard
+/**
+ * Teclado para seleção de valor de aposta
+ * Valores pré-definidos e opção personalizada
+ */
 export const betAmountKeyboard: Markup.Markup<InlineKeyboardMarkup> = Markup.inlineKeyboard([
   [
     Markup.button.callback(`R$ ${(BET_AMOUNTS[0] / 100).toFixed(2)}`, `bet_${BET_AMOUNTS[0]}`),
@@ -44,7 +58,10 @@ export const betAmountKeyboard: Markup.Markup<InlineKeyboardMarkup> = Markup.inl
   [Markup.button.callback(`${EMOJIS.BACK} Voltar`, 'back_games')],
 ]);
 
-// Coin flip choice keyboard
+/**
+ * Teclado para escolhas no jogo Cara ou Coroa
+ * Botões para Cara e Coroa
+ */
 export const coinFlipChoiceKeyboard: Markup.Markup<InlineKeyboardMarkup> = Markup.inlineKeyboard([
   [
     Markup.button.callback(COIN_CHOICE_LABELS.heads, 'choice_heads'),

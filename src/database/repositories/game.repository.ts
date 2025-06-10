@@ -4,16 +4,49 @@ import { logger } from '../../utils/logger';
 import { db } from '../connection';
 import { games } from '../schema/schema';
 
+/**
+ * Interface para dados necessários na criação de um novo jogo.
+ * 
+ * Define os campos obrigatórios e opcionais para instanciar
+ * uma nova partida no banco de dados.
+ */
 export interface CreateGameInput {
+  /** ID do usuário criador da partida */
   creatorId: number;
+  /** Tipo de jogo a ser criado */
   gameType: GameType;
+  /** Modo da partida: single-player, multiplayer ou torneio */
   matchType: 'single_player' | 'multiplayer' | 'tournament';
+  /** Valor da aposta em formato string decimal */
   betAmount: string;
+  /** Dados específicos do jogo em formato JSON */
   gameData?: unknown;
+  /** Data/hora de expiração da partida */
   expiresAt?: Date;
 }
 
+/**
+ * Repository para operações de banco de dados relacionadas a jogos.
+ * 
+ * Centraliza todas as operações CRUD e consultas específicas para
+ * a tabela de jogos, incluindo criação, busca, atualização de status
+ * e finalização de partidas.
+ * 
+ * @class GameRepository
+ */
 export class GameRepository {
+  /**
+   * Cria uma nova partida no banco de dados.
+   * 
+   * Insere uma nova entrada na tabela de jogos com status inicial 'waiting'
+   * e registra a operação nos logs para auditoria.
+   * 
+   * @param gameData - Dados da partida a ser criada
+   * 
+   * @returns Promise com os dados completos da partida criada
+   * 
+   * @throws {Error} Erro de banco de dados durante inserção
+   */
   async create(gameData: CreateGameInput): Promise<Game> {
     try {
       const [newGame] = await db
@@ -43,6 +76,18 @@ export class GameRepository {
     }
   }
 
+  /**
+   * Busca uma partida específica pelo seu ID.
+   * 
+   * Retorna dados completos da partida ou null se não encontrada.
+   * Útil para validações e carregamento de estado de jogo.
+   * 
+   * @param id - ID único da partida
+   * 
+   * @returns Promise com dados da partida ou null se não encontrada
+   * 
+   * @throws {Error} Erro de banco de dados durante consulta
+   */
   async findById(id: number): Promise<Game | null> {
     try {
       const game = await db
@@ -58,6 +103,19 @@ export class GameRepository {
     }
   }
 
+  /**
+   * Busca partidas criadas por um usuário específico.
+   * 
+   * Retorna histórico de jogos do usuário ordenados por data de criação
+   * (mais recentes primeiro), útil para exibir histórico e estatísticas.
+   * 
+   * @param creatorId - ID do usuário criador
+   * @param limit - Número máximo de resultados (padrão: 20)
+   * 
+   * @returns Promise com array de partidas do usuário
+   * 
+   * @throws {Error} Erro de banco de dados durante consulta
+   */
   async findByCreatorId(creatorId: number, limit: number = 20): Promise<Game[]> {
     try {
       const userGames = await db
@@ -74,6 +132,19 @@ export class GameRepository {
     }
   }
 
+  /**
+   * Atualiza o status de uma partida.
+   * 
+   * Modifica o estado da partida (waiting, active, completed, etc.)
+   * e registra timestamp da atualização para controle temporal.
+   * 
+   * @param gameId - ID da partida a ser atualizada
+   * @param status - Novo status da partida
+   * 
+   * @returns Promise<boolean> true se atualização bem-sucedida
+   * 
+   * @throws {Error} Erro de banco de dados durante atualização
+   */
   async updateStatus(gameId: number, status: GameStatus): Promise<boolean> {
     try {
       await db
@@ -92,6 +163,21 @@ export class GameRepository {
     }
   }
 
+  /**
+   * Finaliza uma partida com resultado e dados financeiros.
+   * 
+   * Marca partida como 'completed', registra vencedor, valores de prêmio
+   * e comissão da casa, além do timestamp de finalização.
+   * 
+   * @param gameId - ID da partida a ser finalizada
+   * @param winnerId - ID do jogador vencedor (null para empate)
+   * @param prize - Valor do prêmio distribuído
+   * @param rakeAmount - Valor da comissão da casa
+   * 
+   * @returns Promise<boolean> true se finalização bem-sucedida
+   * 
+   * @throws {Error} Erro de banco de dados durante atualização
+   */
   async completeGame(
     gameId: number,
     winnerId: number | null,
@@ -125,6 +211,20 @@ export class GameRepository {
     }
   }
 
+  /**
+   * Busca partidas disponíveis para entrada de novos jogadores.
+   * 
+   * Retorna jogos com status 'waiting' ordenados por criação,
+   * opcionalmente filtrados por tipo de jogo para exibição
+   * na lista de partidas disponíveis.
+   * 
+   * @param gameType - Tipo específico de jogo para filtrar (opcional)
+   * @param limit - Número máximo de resultados (padrão: 10)
+   * 
+   * @returns Promise com array de partidas aguardando jogadores
+   * 
+   * @throws {Error} Erro de banco de dados durante consulta
+   */
   async findAvailableGames(gameType?: string, limit: number = 10): Promise<Game[]> {
     try {
       let whereClause;
@@ -152,6 +252,19 @@ export class GameRepository {
     }
   }
 
+  /**
+   * Adiciona segundo jogador a uma partida multiplayer.
+   * 
+   * Atualiza partida para incluir player2Id e modifica status para 'active',
+   * indicando que o jogo está pronto para começar com ambos jogadores.
+   * 
+   * @param gameId - ID da partida a receber o segundo jogador
+   * @param player2Id - ID do segundo jogador
+   * 
+   * @returns Promise com dados atualizados da partida
+   * 
+   * @throws {Error} Erro de banco de dados durante atualização
+   */
   async updateGameWithPlayer2(gameId: number, player2Id: number): Promise<Game> {
     try {
       const [updatedGame] = await db
@@ -177,6 +290,19 @@ export class GameRepository {
     }
   }
 
+  /**
+   * Atualiza dados específicos de uma partida em andamento.
+   * 
+   * Modifica campo gameData com estado atual do jogo (jogadas, turno, etc.),
+   * permitindo persistir progresso de partidas complexas como Dominó.
+   * 
+   * @param gameId - ID da partida a ser atualizada
+   * @param gameData - Novos dados do jogo em formato JSON
+   * 
+   * @returns Promise<boolean> true se atualização bem-sucedida
+   * 
+   * @throws {Error} Erro de banco de dados durante atualização
+   */
   async updateGameData(gameId: number, gameData: unknown): Promise<boolean> {
     try {
       await db

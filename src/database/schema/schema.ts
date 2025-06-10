@@ -1,35 +1,48 @@
 import { relations } from 'drizzle-orm';
 import {
-  boolean,
-  decimal,
-  integer,
-  json,
-  pgEnum,
-  pgTable,
-  serial,
-  text,
-  timestamp,
-  varchar,
+    boolean,
+    decimal,
+    integer,
+    json,
+    pgEnum,
+    pgTable,
+    serial,
+    text,
+    timestamp,
+    varchar,
 } from 'drizzle-orm/pg-core';
 
-// Enums
+/**
+ * Schema do banco de dados usando Drizzle ORM
+ * Define todas as tabelas, enums e relacionamentos
+ */
+
+// Enums para tipagem segura
+
+/** Enum para status de usuário */
 export const userStatusEnum = pgEnum('user_status', [
   'active',
   'suspended',
   'banned',
 ]);
+
+/** Enum para tipos de transação */
 export const transactionTypeEnum = pgEnum('transaction_type', [
   'deposit',
   'withdrawal',
   'bet_win',
   'bet_loss',
 ]);
+
+/** Enum para status de transação */
 export const transactionStatusEnum = pgEnum('transaction_status', [
   'pending',
   'completed',
   'failed',
   'cancelled',
 ]);
+
+/** Enum para tipos de jogo */
 export const gameTypeEnum = pgEnum('game_type', [
   'coin_flip',
   'rock_paper_scissors',
@@ -37,6 +50,8 @@ export const gameTypeEnum = pgEnum('game_type', [
   'domino',
   'tournament',
 ]);
+
+/** Enum para status de jogo */
 export const gameStatusEnum = pgEnum('game_status', [
   'waiting',
   'active',
@@ -44,43 +59,72 @@ export const gameStatusEnum = pgEnum('game_status', [
   'cancelled',
   'expired',
 ]);
+
+/** Enum para tipos de partida */
 export const matchTypeEnum = pgEnum('match_type', [
   'single_player',
   'multiplayer',
   'tournament',
 ]);
 
-// Users table
+// Definição das tabelas
+
+/**
+ * Tabela de usuários
+ * Armazena informações dos usuários do Telegram
+ */
 export const users = pgTable('users', {
+  /** ID único do usuário */
   id: serial('id').primaryKey(),
+  /** ID único do usuário no Telegram */
   telegramId: varchar('telegram_id', { length: 50 }).notNull().unique(),
-  chatId: varchar('chat_id', { length: 50 }), // Para notificações
+  /** ID do chat para notificações */
+  chatId: varchar('chat_id', { length: 50 }),
+  /** Primeiro nome do usuário */
   firstName: varchar('first_name', { length: 100 }),
+  /** Sobrenome do usuário */
   lastName: varchar('last_name', { length: 100 }),
+  /** Username do usuário no Telegram */
   username: varchar('username', { length: 100 }),
+  /** Saldo atual do usuário */
   balance: decimal('balance', { precision: 10, scale: 2 })
     .default('0.00')
     .notNull(),
+  /** Status do usuário */
   status: userStatusEnum('status').default('active').notNull(),
+  /** Se o usuário está ativo */
   isActive: boolean('is_active').default(true).notNull(),
+  /** Última atividade do usuário */
   lastActivity: timestamp('last_activity').defaultNow(),
+  /** Data de criação */
   createdAt: timestamp('created_at').defaultNow().notNull(),
+  /** Data da última atualização */
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-// Transactions table
+/**
+ * Tabela de transações
+ * Registra todas as movimentações financeiras
+ */
 export const transactions = pgTable('transactions', {
+  /** ID único da transação */
   id: serial('id').primaryKey(),
+  /** Referência ao usuário */
   userId: integer('user_id')
     .references(() => users.id)
     .notNull(),
+  /** Tipo da transação */
   type: transactionTypeEnum('type').notNull(),
+  /** Valor da transação */
   amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
+  /** Saldo antes da transação */
   balanceBefore: decimal('balance_before', {
     precision: 10,
     scale: 2,
   }).notNull(),
+  /** Saldo após a transação */
   balanceAfter: decimal('balance_after', { precision: 10, scale: 2 }).notNull(),
+  /** Status da transação */
   status: transactionStatusEnum('status').default('pending').notNull(),
   description: text('description'),
   createdAt: timestamp('created_at').defaultNow().notNull(),

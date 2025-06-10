@@ -2,15 +2,27 @@ import { Telegraf } from 'telegraf';
 import { GameContext } from '../bot/context';
 import { logger } from '../utils/logger';
 
+/**
+ * Serviço de notificações para o bot do Telegram
+ * Responsável por enviar mensagens e notificações para usuários
+ */
 export class NotificationService {
   private bot: Telegraf<GameContext>;
 
+  /**
+   * Construtor do serviço de notificações
+   * @param bot - Instância do bot Telegraf
+   */
   constructor(bot: Telegraf<GameContext>) {
     this.bot = bot;
   }
 
   /**
-   * Enviar notificação para um usuário específico
+   * Envia uma notificação para um usuário específico
+   * @param chatId - ID do chat do usuário
+   * @param message - Mensagem a ser enviada
+   * @param options - Opções adicionais do Telegram (opcional)
+   * @returns Promise<boolean> indicando se a notificação foi enviada com sucesso
    */
   async sendNotification(chatId: string, message: string, options?: object): Promise<boolean> {
     try {
@@ -35,7 +47,11 @@ export class NotificationService {
   }
 
   /**
-   * Notificar que alguém entrou na partida
+   * Notifica o criador de uma partida que alguém entrou
+   * @param creatorChatId - Chat ID do criador da partida
+   * @param playerName - Nome do jogador que entrou
+   * @param gameId - ID da partida
+   * @returns Promise<boolean> indicando sucesso do envio
    */
   async notifyPlayerJoined(creatorChatId: string, playerName: string, gameId: number): Promise<boolean> {
     const message = `🎮 *${playerName} entrou na sua partida!*\n\n🆔 Partida: #${gameId}\n⏳ Aguardando sua jogada...\n\nFaça sua escolha:`;
@@ -55,7 +71,13 @@ export class NotificationService {
   }
 
   /**
-   * Notificar resultado da partida
+   * Notifica o resultado da partida para um jogador
+   * @param chatId - Chat ID do jogador
+   * @param isWinner - Se o jogador ganhou
+   * @param gameId - ID da partida
+   * @param opponentName - Nome do oponente
+   * @param prize - Valor do prêmio (se ganhou)
+   * @returns Promise<boolean> indicando sucesso do envio
    */
   async notifyGameResult(chatId: string, isWinner: boolean, gameId: number, opponentName: string, prize?: number): Promise<boolean> {
     let message: string;
@@ -79,7 +101,10 @@ export class NotificationService {
   }
 
   /**
-   * Notificar que uma partida expirou
+   * Notifica que uma partida expirou
+   * @param chatId - Chat ID do usuário
+   * @param gameId - ID da partida que expirou
+   * @returns Promise<boolean> indicando sucesso do envio
    */
   async notifyGameExpired(chatId: string, gameId: number): Promise<boolean> {
     const message = `⏰ *Partida Expirou*\n\n🆔 Partida: #${gameId}\n\nNinguém entrou na sua partida a tempo.\nSeu valor foi devolvido.`;

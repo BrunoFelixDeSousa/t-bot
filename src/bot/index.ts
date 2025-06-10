@@ -6,6 +6,10 @@ import { GameContext } from './context';
 import { BotHandlers } from './handlers';
 import { userMiddleware } from './middleware';
 
+/**
+ * Classe principal do bot do Telegram
+ * Gerencia a inicialização, middlewares, handlers e tratamento de erros
+ */
 export class TelegramBot {
   private bot: Telegraf<GameContext>;
   private handlers: BotHandlers;
@@ -24,6 +28,10 @@ export class TelegramBot {
     this.setupErrorHandling();
   }
 
+  /**
+   * Configura os middlewares do bot
+   * Inclui session e middleware de usuário
+   */
   private setupMiddleware() {
     // Session middleware
     this.bot.use(session({
@@ -34,10 +42,16 @@ export class TelegramBot {
     this.bot.use(userMiddleware);
   }
 
+  /**
+   * Registra todos os handlers do bot
+   */
   private setupHandlers() {
     this.handlers.registerHandlers(this.bot);
   }
 
+  /**
+   * Configura o tratamento de erros global do bot
+   */
   private setupErrorHandling() {
     this.bot.catch((err, ctx) => {
       logger.error('Bot error:', {
@@ -50,6 +64,10 @@ export class TelegramBot {
     });
   }
 
+  /**
+   * Inicia o bot do Telegram
+   * Configura o graceful shutdown e logging
+   */
   async start() {
     try {
       await this.bot.launch();
@@ -67,6 +85,9 @@ export class TelegramBot {
     }
   }
 
+  /**
+   * Para o bot do Telegram de forma graceful
+   */
   async stop() {
     this.bot.stop();
     logger.info('🤖 Telegram bot stopped');

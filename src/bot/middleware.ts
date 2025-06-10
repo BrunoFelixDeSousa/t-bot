@@ -5,6 +5,12 @@ import { GameContext } from './context';
 
 const userService = new UserService();
 
+/**
+ * Middleware para autenticação e gerenciamento de usuários
+ * Busca ou cria usuário no banco de dados e adiciona ao contexto
+ * @param ctx - Contexto do Telegram
+ * @param next - Próxima função na cadeia de middleware
+ */
 export async function userMiddleware(ctx: GameContext, next: () => Promise<void>) {
   try {
     if (!ctx.from) {
