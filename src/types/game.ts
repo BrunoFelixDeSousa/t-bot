@@ -7,6 +7,7 @@ export type MatchType = 'single_player' | 'multiplayer' | 'tournament';
 export interface Game {
   id: number;
   creatorId: number;
+  player2Id?: number | null;
   gameType: GameType;
   matchType: MatchType;
   betAmount: string;

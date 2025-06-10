@@ -9,6 +9,7 @@ export interface GameContext extends Context {
     data?: unknown;
     selectedGame?: string;
     betAmount?: number;
+    action?: string; // For multiplayer flow control
     [key: string]: unknown;
   };
   state: {

@@ -91,6 +91,7 @@ export const games = pgTable('games', {
   creatorId: integer('creator_id')
     .references(() => users.id)
     .notNull(),
+  player2Id: integer('player2_id').references(() => users.id),
   gameType: gameTypeEnum('game_type').notNull(),
   matchType: matchTypeEnum('match_type').default('single_player').notNull(),
   betAmount: decimal('bet_amount', { precision: 10, scale: 2 }).notNull(),
@@ -110,6 +111,7 @@ export const games = pgTable('games', {
 export const usersRelations = relations(users, ({ many }) => ({
   transactions: many(transactions),
   createdGames: many(games, { relationName: 'creator' }),
+  player2Games: many(games, { relationName: 'player2' }),
   wonGames: many(games, { relationName: 'winner' }),
 }));
 
@@ -125,6 +127,11 @@ export const gamesRelations = relations(games, ({ one }) => ({
     fields: [games.creatorId],
     references: [users.id],
     relationName: 'creator',
+  }),
+  player2: one(users, {
+    fields: [games.player2Id],
+    references: [users.id],
+    relationName: 'player2',
   }),
   winner: one(users, {
     fields: [games.winnerId],

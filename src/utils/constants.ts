@@ -72,6 +72,28 @@ export const MESSAGES = {
   // Game specific messages
   SELECT_BET_AMOUNT: '💰 *Selecione o valor da aposta:*',
   COIN_FLIP_CHOICE: (amount: number) => `🪙 *Cara ou Coroa* - R$ ${amount.toFixed(2)}\n\nEscolha sua aposta:`,
+  COIN_FLIP_MULTIPLAYER_OPTIONS: '🪙 *Cara ou Coroa - Multiplayer*\n\nEste jogo é sempre entre duas pessoas!\n\nEscolha uma opção:',
+  
+  // Multiplayer messages
+  GAME_CREATED_WAITING: (gameId: number, amount: number) => 
+    `🎮 *Partida Criada!*\n\n💰 Valor: R$ ${amount.toFixed(2)}\n🆔 ID: #${gameId}\n⏳ Aguardando adversário...\n\nCompartilhe o ID com alguém para jogar!`,
+  
+  AVAILABLE_GAMES: '🔍 *Partidas Disponíveis*\n\nEscolha uma partida para entrar:',
+  NO_AVAILABLE_GAMES: '😔 *Nenhuma partida disponível*\n\nCrie uma nova partida ou tente novamente mais tarde.',
+  
+  GAME_JOINED: (gameId: number, creatorName: string, amount: number) => 
+    `🎮 *Você entrou na partida!*\n\n🆔 ID: #${gameId}\n👤 Adversário: ${creatorName}\n💰 Valor: R$ ${amount.toFixed(2)}\n\nFaça sua escolha:`,
+  
+  OPPONENT_JOINED: (playerName: string) => 
+    `🎮 *${playerName} entrou na sua partida!*\n\nAgora faça sua escolha:`,
+  
+  WAITING_OPPONENT_MOVE: '⏳ *Aguardando jogada do adversário...*\n\nSua escolha foi registrada!',
+  
+  MULTIPLAYER_RESULT_WIN: (gameId: number, amount: number, opponentChoice: string, yourChoice: string, opponentName: string) => 
+    `🎉 *VOCÊ GANHOU!*\n\n🆔 Partida: #${gameId}\n💰 Prêmio: R$ ${amount.toFixed(2)}\n👤 Adversário: ${opponentName}\n\nVocê: ${yourChoice}\nAdversário: ${opponentChoice}`,
+  
+  MULTIPLAYER_RESULT_LOSE: (gameId: number, amount: number, opponentChoice: string, yourChoice: string, opponentName: string) => 
+    `😔 *VOCÊ PERDEU!*\n\n🆔 Partida: #${gameId}\n💸 Perdeu: R$ ${amount.toFixed(2)}\n👤 Adversário: ${opponentName}\n\nVocê: ${yourChoice}\nAdversário: ${opponentChoice}`,
   
   // Game results
   COIN_FLIP_WIN: (bet: number, win: number, playerChoice: string, result: string) => 

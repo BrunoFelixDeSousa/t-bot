@@ -31,40 +31,40 @@ export class GameService {
       }
 
       // Validar limites de aposta
-      if (gameData.betAmount < config.game.minBetAmount) {
+      if (gameData.betAmount < config.game.minBetAmount / 100) {
         throw new AppError(
-          `Aposta mínima: R$ ${config.game.minBetAmount}`,
+          `Aposta mínima: R$ ${(config.game.minBetAmount / 100).toFixed(2)}`,
           400
         );
       }
 
-      if (gameData.betAmount > config.game.maxBetAmount) {
+      if (gameData.betAmount > config.game.maxBetAmount / 100) {
         throw new AppError(
-          `Aposta máxima: R$ ${config.game.maxBetAmount}`,
+          `Aposta máxima: R$ ${(config.game.maxBetAmount / 100).toFixed(2)}`,
           400
         );
       }
 
-      // Reservar saldo (descontar aposta)
+      // Para jogos multiplayer, reservar saldo do criador
       await this.userService.updateUserBalance(
         userId,
         gameData.betAmount.toFixed(2),
         'subtract'
       );
 
-      // Criar jogo no banco
+      // Criar jogo no banco sempre como multiplayer
       const game = await gameRepository.create({
         creatorId: userId,
         gameType: gameData.gameType,
-        matchType: gameData.matchType || 'single_player',
+        matchType: 'multiplayer', // Sempre multiplayer
         betAmount: gameData.betAmount.toFixed(2),
         gameData: {},
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutos
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutos para alguém entrar
       });
 
-      logger.info('Game created successfully', {
+      logger.info('Multiplayer game created, waiting for opponent', {
         gameId: game.id,
-        userId,
+        creatorId: userId,
         gameType: gameData.gameType,
         betAmount: gameData.betAmount,
       });
@@ -190,6 +190,7 @@ export class GameService {
   }
 
   /**
+   * DEPRECATED: Use multiplayer system instead
    * Creates and immediately plays a game in one operation
    * Used for single-player games like coin flip
    */
@@ -199,38 +200,235 @@ export class GameService {
     betAmount: number; // in cents
     gameData: { playerChoice: 'heads' | 'tails' };
   }): Promise<{ gameId: number; result: { playerChoice: string; botChoice: string; winner: string; winnings: number } }> {
+    throw new AppError('Single player games não são mais suportados. Use o sistema multiplayer.', 400);
+  }
+
+  /**
+   * Join an existing multiplayer game
+   */
+  async joinGame(gameId: number, userId: number): Promise<Game> {
     try {
-      // Convert betAmount from cents to reais
-      const betAmountReais = gameData.betAmount / 100;
+      const game = await gameRepository.findById(gameId);
+      if (!game) {
+        throw new AppError('Jogo não encontrado', 404);
+      }
 
-      // Create the game
-      const game = await this.createGame(gameData.userId, {
-        gameType: gameData.gameType,
-        matchType: 'single_player',
-        betAmount: betAmountReais,
-      });
+      // Validar se jogo está disponível para entrar
+      if (game.status !== 'waiting') {
+        throw new AppError('Este jogo não está mais disponível', 400);
+      }
 
-      // Immediately play the game
-      const result = await this.playCoinFlip(
-        game.id,
-        gameData.userId,
-        gameData.gameData.playerChoice
+      // Validar se não é o próprio criador
+      if (game.creatorId === userId) {
+        throw new AppError('Você não pode entrar no seu próprio jogo', 400);
+      }
+
+      // Validar se o jogo não expirou
+      if (game.expiresAt && new Date() > game.expiresAt) {
+        await gameRepository.updateStatus(gameId, 'expired');
+        throw new AppError('Este jogo expirou', 400);
+      }
+
+      // Validar usuário e saldo
+      const user = await this.userService.getUserById(userId);
+      if (!user) {
+        throw new AppError('Usuário não encontrado', 404);
+      }
+
+      const userBalance = parseFloat(user.balance);
+      const betAmount = parseFloat(game.betAmount);
+      
+      if (userBalance < betAmount) {
+        throw new AppError(
+          `Saldo insuficiente. Necessário: R$ ${betAmount.toFixed(2)}`,
+          400
+        );
+      }
+
+      // Descontar aposta do segundo jogador
+      await this.userService.updateUserBalance(
+        userId,
+        game.betAmount,
+        'subtract'
       );
 
-      // Return both game ID and result
-      return {
-        gameId: game.id,
-        result: {
-          playerChoice: gameData.gameData.playerChoice,
-          botChoice: result.houseChoice, // The actual coin flip result
-          winner: result.winner,
-          winnings: result.prize,
-        },
-      };
+      // Atualizar jogo para ativo com segundo jogador
+      const updatedGame = await gameRepository.updateGameWithPlayer2(gameId, userId);
+
+      logger.info('Player joined multiplayer game', {
+        gameId,
+        creatorId: game.creatorId,
+        player2Id: userId,
+        gameType: game.gameType,
+        betAmount: game.betAmount,
+      });
+
+      return updatedGame;
     } catch (error) {
       if (error instanceof AppError) throw error;
-      logger.error('Error in createAndPlayGame:', error);
-      throw new AppError('Erro interno ao criar e jogar', 500);
+      logger.error('Error joining game:', error);
+      throw new AppError('Erro interno ao entrar no jogo', 500);
+    }
+  }
+
+  /**
+   * Get available games waiting for players
+   */
+  async getAvailableGames(gameType?: string, limit: number = 10): Promise<Game[]> {
+    try {
+      return await gameRepository.findAvailableGames(gameType, limit);
+    } catch (error) {
+      logger.error('Error getting available games:', error);
+      throw new AppError('Erro ao buscar jogos disponíveis', 500);
+    }
+  }
+
+  /**
+   * Make a move in a multiplayer game
+   */
+  async makeMove(gameId: number, userId: number, choice: 'heads' | 'tails'): Promise<{ waiting: boolean; result?: any }> {
+    try {
+      const game = await gameRepository.findById(gameId);
+      if (!game) {
+        throw new AppError('Jogo não encontrado', 404);
+      }
+
+      // Validar se é participante do jogo
+      if (game.creatorId !== userId && game.player2Id !== userId) {
+        throw new AppError('Você não é participante deste jogo', 403);
+      }
+
+      // Validar status do jogo
+      if (game.status !== 'active') {
+        throw new AppError('Jogo não está ativo', 400);
+      }
+
+      // Recuperar dados do jogo
+      const gameData = (game.gameData as any) || {};
+      
+      // Registrar jogada
+      if (game.creatorId === userId) {
+        gameData.player1Choice = choice;
+      } else {
+        gameData.player2Choice = choice;
+      }
+
+      // Atualizar dados do jogo
+      await gameRepository.updateGameData(gameId, gameData);
+
+      // Verificar se ambos jogaram
+      if (gameData.player1Choice && gameData.player2Choice) {
+        // Ambos jogaram, processar resultado
+        const result = await this.processMultiplayerResult(game, gameData);
+        return { waiting: false, result };
+      } else {
+        // Ainda esperando o outro jogador
+        return { waiting: true };
+      }
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      logger.error('Error making move:', error);
+      throw new AppError('Erro ao fazer jogada', 500);
+    }
+  }
+
+  /**
+   * Process multiplayer game result
+   */
+  private async processMultiplayerResult(game: Game, gameData: any): Promise<any> {
+    try {
+      const betAmount = parseFloat(game.betAmount);
+      const rakePercentage = config.game.rakePercentage / 100;
+      const totalPool = betAmount * 2;
+      const rakeAmount = totalPool * rakePercentage;
+      const prizeAmount = totalPool - rakeAmount;
+
+      let winnerId: number | null = null;
+      let result: string;
+
+      // Para Coin Flip: se as escolhas forem iguais, quem criou o jogo ganha
+      if (gameData.player1Choice === gameData.player2Choice) {
+        // Empate - criador ganha
+        winnerId = game.creatorId;
+        result = 'creator_wins_tie';
+      } else {
+        // Escolhas diferentes - gerar resultado aleatório
+        const coinResult = Math.random() < 0.5 ? 'heads' : 'tails';
+        
+        if (gameData.player1Choice === coinResult) {
+          winnerId = game.creatorId;
+          result = 'creator_wins';
+        } else {
+          winnerId = game.player2Id;
+          result = 'player2_wins';
+        }
+      }
+
+      // Pagar vencedor
+      if (winnerId) {
+        await this.userService.updateUserBalance(
+          winnerId,
+          prizeAmount.toFixed(2),
+          'add'
+        );
+
+        // Registrar transação de ganho
+        const winner = await this.userService.getUserById(winnerId);
+        if (winner) {
+          await transactionRepository.create({
+            userId: winnerId,
+            type: 'bet_win',
+            amount: prizeAmount.toFixed(2),
+            balanceBefore: (parseFloat(winner.balance) - prizeAmount).toFixed(2),
+            balanceAfter: winner.balance,
+            description: `Vitória PvP em ${game.gameType} - Jogo #${game.id}`,
+          });
+        }
+      }
+
+      // Registrar transação de derrota para o perdedor
+      const loserId = winnerId === game.creatorId ? game.player2Id : game.creatorId;
+      if (loserId) {
+        const loser = await this.userService.getUserById(loserId);
+        if (loser) {
+          await transactionRepository.create({
+            userId: loserId,
+            type: 'bet_loss',
+            amount: betAmount.toFixed(2),
+            balanceBefore: (parseFloat(loser.balance) + betAmount).toFixed(2),
+            balanceAfter: loser.balance,
+            description: `Derrota PvP em ${game.gameType} - Jogo #${game.id}`,
+          });
+        }
+      }
+
+      // Completar jogo
+      await gameRepository.completeGame(
+        game.id,
+        winnerId,
+        prizeAmount.toFixed(2),
+        rakeAmount.toFixed(2)
+      );
+
+      // Buscar nomes dos jogadores para o resultado
+      const creator = await this.userService.getUserById(game.creatorId);
+      const player2 = await this.userService.getUserById(game.player2Id!);
+
+      return {
+        gameId: game.id,
+        winnerId,
+        winnerName: winnerId === game.creatorId ? creator?.firstName : player2?.firstName,
+        creatorChoice: gameData.player1Choice,
+        player2Choice: gameData.player2Choice,
+        creatorName: creator?.firstName,
+        player2Name: player2?.firstName,
+        prizeAmount,
+        rakeAmount,
+        result
+      };
+    } catch (error) {
+      logger.error('Error processing multiplayer result:', error);
+      throw error;
     }
   }
 

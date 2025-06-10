@@ -22,6 +22,13 @@
       "when": 1749566884107,
       "tag": "0002_rare_naoko",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1749575799618,
+      "tag": "0003_lying_machine_man",
+      "breakpoints": true
     }
   ]
 }

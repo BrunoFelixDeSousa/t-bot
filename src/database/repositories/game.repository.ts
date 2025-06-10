@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { Game, GameStatus, GameType } from '../../types/game';
 import { logger } from '../../utils/logger';
 import { db } from '../connection';
@@ -121,6 +121,76 @@ export class GameRepository {
       return true;
     } catch (error) {
       logger.error('Error completing game:', error);
+      throw error;
+    }
+  }
+
+  async findAvailableGames(gameType?: string, limit: number = 10): Promise<Game[]> {
+    try {
+      let whereClause;
+      
+      if (gameType) {
+        whereClause = and(
+          eq(games.status, 'waiting'),
+          eq(games.gameType, gameType as GameType)
+        );
+      } else {
+        whereClause = eq(games.status, 'waiting');
+      }
+
+      const availableGames = await db
+        .select()
+        .from(games)
+        .where(whereClause)
+        .orderBy(desc(games.createdAt))
+        .limit(limit);
+
+      return availableGames;
+    } catch (error) {
+      logger.error('Error finding available games:', error);
+      throw error;
+    }
+  }
+
+  async updateGameWithPlayer2(gameId: number, player2Id: number): Promise<Game> {
+    try {
+      const [updatedGame] = await db
+        .update(games)
+        .set({
+          player2Id,
+          status: 'active',
+          updatedAt: new Date(),
+        })
+        .where(eq(games.id, gameId))
+        .returning();
+
+      logger.info('Game updated with player 2', {
+        gameId,
+        player2Id,
+        status: 'active',
+      });
+
+      return updatedGame;
+    } catch (error) {
+      logger.error('Error updating game with player 2:', error);
+      throw error;
+    }
+  }
+
+  async updateGameData(gameId: number, gameData: unknown): Promise<boolean> {
+    try {
+      await db
+        .update(games)
+        .set({
+          gameData,
+          updatedAt: new Date(),
+        })
+        .where(eq(games.id, gameId));
+
+      logger.info('Game data updated', { gameId });
+      return true;
+    } catch (error) {
+      logger.error('Error updating game data:', error);
       throw error;
     }
   }
