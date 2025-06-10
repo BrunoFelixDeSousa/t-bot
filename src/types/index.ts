@@ -14,6 +14,8 @@ export interface Config {
     minBetAmount: number;
     maxBetAmount: number;
     rakePercentage: number;
+    gameTimeout: number; // Timeout em minutos para jogos esperando oponente
+    maxActiveGames: number; // Máximo de jogos ativos por usuário
   };
   admin: {
     telegramIds: number[];

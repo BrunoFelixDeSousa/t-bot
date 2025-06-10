@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export type GameType = 'coin_flip' | 'rock_paper_scissors' | 'dice' | 'domino';
+export type GameType = 'coin_flip' | 'rock_paper_scissors' | 'dice' | 'domino' | 'tournament';
 export type GameStatus = 'waiting' | 'active' | 'completed' | 'cancelled' | 'expired';
 export type MatchType = 'single_player' | 'multiplayer' | 'tournament';
 
@@ -45,7 +45,7 @@ export interface CoinFlipChoice {
 
 // Validation schemas
 export const createGameSchema = z.object({
-  gameType: z.enum(['coin_flip', 'rock_paper_scissors', 'dice', 'domino']),
+  gameType: z.enum(['coin_flip', 'rock_paper_scissors', 'dice', 'domino', 'tournament']),
   betAmount: z.number().min(1).max(10000),
   matchType: z.enum(['single_player', 'multiplayer']).default('single_player'),
 });
@@ -122,5 +122,13 @@ export const GAME_TYPES_INFO = {
     minPlayers: 2,
     maxPlayers: 4,
     averageTime: '10-15 minutos',
+  },
+  tournament: {
+    name: 'Torneio',
+    emoji: '🏆',
+    description: 'Competição eliminatória entre múltiplos jogadores!',
+    minPlayers: 4,
+    maxPlayers: 16,
+    averageTime: '30-60 minutos',
   },
 } as const;

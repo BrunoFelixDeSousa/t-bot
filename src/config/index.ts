@@ -16,6 +16,8 @@ export const config: Config = {
     minBetAmount: parseFloat(process.env.MIN_BET_AMOUNT || '5.00'),
     maxBetAmount: parseFloat(process.env.MAX_BET_AMOUNT || '1000.00'),
     rakePercentage: parseFloat(process.env.RAKE_PERCENTAGE || '5.0'),
+    gameTimeout: parseInt(process.env.GAME_TIMEOUT || '15'), // 15 minutos (alinhado com projeto game)
+    maxActiveGames: parseInt(process.env.MAX_ACTIVE_GAMES || '5'), // Máximo de jogos ativos por usuário
   },
   admin: {
     telegramIds: process.env.ADMIN_TELEGRAM_ID

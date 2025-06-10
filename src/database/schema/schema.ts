@@ -35,6 +35,7 @@ export const gameTypeEnum = pgEnum('game_type', [
   'rock_paper_scissors',
   'dice',
   'domino',
+  'tournament',
 ]);
 export const gameStatusEnum = pgEnum('game_status', [
   'waiting',

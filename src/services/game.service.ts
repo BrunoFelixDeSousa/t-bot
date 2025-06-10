@@ -21,6 +21,15 @@ export class GameService {
         throw new AppError('Usuário não encontrado', 404);
       }
 
+      // Validar máximo de jogos ativos
+      const activeGames = await this.findUserActiveMatches(userId);
+      if (activeGames.length >= config.game.maxActiveGames) {
+        throw new AppError(
+          `Máximo de ${config.game.maxActiveGames} jogos ativos permitido`,
+          400
+        );
+      }
+
       // Validar saldo
       const userBalance = parseFloat(user.balance);
       if (userBalance < gameData.betAmount) {
@@ -59,7 +68,7 @@ export class GameService {
         matchType: 'multiplayer', // Sempre multiplayer
         betAmount: gameData.betAmount.toFixed(2),
         gameData: {},
-        expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutos para alguém entrar
+        expiresAt: new Date(Date.now() + config.game.gameTimeout * 60 * 1000), // Usar configuração de timeout
       });
 
       logger.info('Multiplayer game created, waiting for opponent', {
@@ -474,5 +483,45 @@ export class GameService {
 
   async getUserGames(userId: number, limit: number = 20): Promise<Game[]> {
     return await gameRepository.findByCreatorId(userId, limit);
+  }
+
+  // ==========================================
+  // ALIASES PARA COMPATIBILIDADE COM PROJETO GAME
+  // ==========================================
+
+  /**
+   * Alias para createGame() - compatibilidade com projeto Game
+   */
+  async createMatch(userId: number, gameData: CreateGameInput): Promise<Game> {
+    return this.createGame(userId, gameData);
+  }
+
+  /**
+   * Alias para joinGame() - compatibilidade com projeto Game
+   */
+  async joinMatch(gameId: number, userId: number): Promise<Game> {
+    return this.joinGame(gameId, userId);
+  }
+
+  /**
+   * Alias para getAvailableGames() - compatibilidade com projeto Game
+   */
+  async findWaitingMatches(gameType?: string, limit: number = 10): Promise<Game[]> {
+    return this.getAvailableGames(gameType, limit);
+  }
+
+  /**
+   * Buscar partidas ativas do usuário - compatibilidade com projeto Game
+   */
+  async findUserActiveMatches(userId: number): Promise<Game[]> {
+    try {
+      const activeGames = await gameRepository.findByCreatorId(userId, 50);
+      return activeGames.filter(game => 
+        game.status === 'active' || game.status === 'waiting'
+      );
+    } catch (error) {
+      logger.error('Error finding user active matches:', error);
+      throw new AppError('Erro ao buscar partidas ativas', 500);
+    }
   }
 }
