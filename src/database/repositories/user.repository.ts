@@ -90,4 +90,22 @@ export class UserRepository {
       throw new Error('Falha ao atualizar última atividade');
     }
   }
+
+  async updateChatId(userId: number, chatId: string): Promise<boolean> {
+    try {
+      await db
+        .update(users)
+        .set({ chatId })
+        .where(eq(users.id, userId));
+
+      logger.info('ChatId atualizado com sucesso', {
+        userId,
+        chatId,
+      });
+      return true;
+    } catch (error) {
+      logger.error(`Erro ao atualizar chatId do usuário ${userId}:`, error);
+      throw new Error('Falha ao atualizar chatId do usuário');
+    }
+  }
 }

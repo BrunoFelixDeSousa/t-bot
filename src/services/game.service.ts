@@ -2,7 +2,7 @@ import { config } from '../config';
 import { gameRepository, transactionRepository } from '../database/repositories';
 import { CoinFlip } from '../games/CoinFlip';
 import { AppError } from '../types';
-import { CreateGameInput, Game, GameResult } from '../types/game';
+import { CoinFlipGameData, CreateGameInput, Game, GameMoveResult, GameResult, MultiplayerGameResult } from '../types/game';
 import { logger } from '../utils/logger';
 import { UserService } from './user.service';
 
@@ -194,12 +194,7 @@ export class GameService {
    * Creates and immediately plays a game in one operation
    * Used for single-player games like coin flip
    */
-  async createAndPlayGame(gameData: {
-    userId: number;
-    gameType: 'coin_flip';
-    betAmount: number; // in cents
-    gameData: { playerChoice: 'heads' | 'tails' };
-  }): Promise<{ gameId: number; result: { playerChoice: string; botChoice: string; winner: string; winnings: number } }> {
+  async createAndPlayGame(): Promise<{ gameId: number; result: { playerChoice: string; botChoice: string; winner: string; winnings: number } }> {
     throw new AppError('Single player games não são mais suportados. Use o sistema multiplayer.', 400);
   }
 
@@ -272,6 +267,36 @@ export class GameService {
   }
 
   /**
+   * Join an existing multiplayer game with notifications
+   */
+  async joinGameWithNotification(gameId: number, userId: number, notificationService?: { notifyPlayerJoined: (chatId: string, playerName: string, gameId: number) => Promise<boolean> }): Promise<Game> {
+    try {
+      // Join the game normally
+      const game = await this.joinGame(gameId, userId);
+      
+      // Send notification to creator if notification service is available
+      if (notificationService) {
+        const creator = await this.userService.getUserById(game.creatorId);
+        const player2 = await this.userService.getUserById(userId);
+        
+        if (creator?.chatId && player2?.firstName) {
+          await notificationService.notifyPlayerJoined(
+            creator.chatId,
+            player2.firstName,
+            gameId
+          );
+        }
+      }
+      
+      return game;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      logger.error('Error joining game with notification:', error);
+      throw new AppError('Erro interno ao entrar no jogo', 500);
+    }
+  }
+
+  /**
    * Get available games waiting for players
    */
   async getAvailableGames(gameType?: string, limit: number = 10): Promise<Game[]> {
@@ -286,7 +311,7 @@ export class GameService {
   /**
    * Make a move in a multiplayer game
    */
-  async makeMove(gameId: number, userId: number, choice: 'heads' | 'tails'): Promise<{ waiting: boolean; result?: any }> {
+  async makeMove(gameId: number, userId: number, choice: 'heads' | 'tails'): Promise<GameMoveResult> {
     try {
       const game = await gameRepository.findById(gameId);
       if (!game) {
@@ -304,7 +329,7 @@ export class GameService {
       }
 
       // Recuperar dados do jogo
-      const gameData = (game.gameData as any) || {};
+      const gameData: CoinFlipGameData = (game.gameData as CoinFlipGameData) || {};
       
       // Registrar jogada
       if (game.creatorId === userId) {
@@ -335,7 +360,7 @@ export class GameService {
   /**
    * Process multiplayer game result
    */
-  private async processMultiplayerResult(game: Game, gameData: any): Promise<any> {
+  private async processMultiplayerResult(game: Game, gameData: CoinFlipGameData): Promise<MultiplayerGameResult> {
     try {
       const betAmount = parseFloat(game.betAmount);
       const rakePercentage = config.game.rakePercentage / 100;
@@ -344,24 +369,34 @@ export class GameService {
       const prizeAmount = totalPool - rakeAmount;
 
       let winnerId: number | null = null;
-      let result: string;
+      let result: 'creator_wins' | 'player2_wins' | 'creator_wins_tie';
 
-      // Para Coin Flip: se as escolhas forem iguais, quem criou o jogo ganha
+      // Gerar resultado da moeda
+      const coinResult: 'heads' | 'tails' = Math.random() < 0.5 ? 'heads' : 'tails';
+
+      // Para Coin Flip: comparar escolhas com o resultado da moeda
       if (gameData.player1Choice === gameData.player2Choice) {
-        // Empate - criador ganha
+        // Ambos escolheram o mesmo - quem criou o jogo ganha (regra de desempate)
         winnerId = game.creatorId;
         result = 'creator_wins_tie';
       } else {
-        // Escolhas diferentes - gerar resultado aleatório
-        const coinResult = Math.random() < 0.5 ? 'heads' : 'tails';
-        
+        // Escolhas diferentes - quem acertou a moeda ganha
         if (gameData.player1Choice === coinResult) {
           winnerId = game.creatorId;
           result = 'creator_wins';
-        } else {
-          winnerId = game.player2Id;
+        } else if (gameData.player2Choice === coinResult) {
+          winnerId = game.player2Id!; // Aqui preciso garantir que não é undefined
           result = 'player2_wins';
+        } else {
+          // Caso impossível, mas por segurança
+          winnerId = game.creatorId;
+          result = 'creator_wins_tie';
         }
+      }
+
+      // Validar que player2Id existe
+      if (!game.player2Id) {
+        throw new AppError('Jogador 2 não encontrado', 400);
       }
 
       // Pagar vencedor
@@ -412,7 +447,7 @@ export class GameService {
 
       // Buscar nomes dos jogadores para o resultado
       const creator = await this.userService.getUserById(game.creatorId);
-      const player2 = await this.userService.getUserById(game.player2Id!);
+      const player2 = await this.userService.getUserById(game.player2Id);
 
       return {
         gameId: game.id,
@@ -424,7 +459,8 @@ export class GameService {
         player2Name: player2?.firstName,
         prizeAmount,
         rakeAmount,
-        result
+        result,
+        coinResult
       };
     } catch (error) {
       logger.error('Error processing multiplayer result:', error);

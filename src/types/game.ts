@@ -57,6 +57,33 @@ export const coinFlipChoiceSchema = z.object({
 export type CreateGameInput = z.infer<typeof createGameSchema>;
 export type CoinFlipChoiceInput = z.infer<typeof coinFlipChoiceSchema>;
 
+// Multiplayer game data types
+export interface CoinFlipGameData {
+  player1Choice?: 'heads' | 'tails';
+  player2Choice?: 'heads' | 'tails';
+  coinResult?: 'heads' | 'tails';
+  completedAt?: Date;
+}
+
+export interface MultiplayerGameResult {
+  gameId: number;
+  winnerId: number | null;
+  winnerName?: string | null;
+  creatorChoice?: 'heads' | 'tails';
+  player2Choice?: 'heads' | 'tails';
+  creatorName?: string | null;
+  player2Name?: string | null;
+  prizeAmount: number;
+  rakeAmount: number;
+  result: 'creator_wins' | 'player2_wins' | 'creator_wins_tie';
+  coinResult?: 'heads' | 'tails';
+}
+
+export interface GameMoveResult {
+  waiting: boolean;
+  result?: MultiplayerGameResult;
+}
+
 // Game constants
 export const COIN_FLIP_CHOICES: CoinFlipChoice[] = [
   { choice: 'heads', emoji: '😎', label: 'Cara' },

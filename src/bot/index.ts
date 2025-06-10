@@ -1,6 +1,7 @@
 import { config } from '@/config';
 import { logger } from '@/utils/logger';
 import { Telegraf, session } from 'telegraf';
+import { NotificationService } from '../services/notification.service';
 import { GameContext } from './context';
 import { BotHandlers } from './handlers';
 import { userMiddleware } from './middleware';
@@ -8,10 +9,15 @@ import { userMiddleware } from './middleware';
 export class TelegramBot {
   private bot: Telegraf<GameContext>;
   private handlers: BotHandlers;
+  private notificationService: NotificationService;
 
   constructor() {
     this.bot = new Telegraf<GameContext>(config.telegram.botToken);
     this.handlers = new BotHandlers();
+    this.notificationService = new NotificationService(this.bot);
+    
+    // Configure notification service in handlers
+    this.handlers.setNotificationService(this.notificationService);
 
     this.setupMiddleware();
     this.setupHandlers();

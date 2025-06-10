@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { UserService } from '@/services/user.service';
 import { Telegraf } from 'telegraf';
+import { NotificationService } from '../services/notification.service';
 import { COIN_CHOICE_LABELS, EMOJIS, MESSAGES } from '../utils/constants';
 import { formatCurrency } from '../utils/helpers';
 import { logger } from '../utils/logger';
@@ -15,9 +16,14 @@ import {
 
 export class BotHandlers {
   private userService: UserService;
+  private notificationService: NotificationService | null = null;
 
   constructor() {
     this.userService = new UserService();
+  }
+
+  setNotificationService(notificationService: NotificationService) {
+    this.notificationService = notificationService;
   }
 
   registerHandlers(bot: Telegraf<GameContext>) {
@@ -541,7 +547,26 @@ export class BotHandlers {
       });
       
       // Notify the creator that someone joined
-      // This would require storing chat IDs, for now we'll skip this part
+      if (this.notificationService && creator?.chatId) {
+        await this.notificationService.notifyPlayerJoined(
+          creator.chatId,
+          ctx.state.user.firstName || 'Jogador',
+          gameId
+        );
+        
+        logger.info('Creator notified of player joining', {
+          gameId,
+          creatorId: creator.id,
+          playerId: ctx.state.user.id
+        });
+      } else {
+        logger.warn('Could not notify creator - missing chatId or notification service', {
+          gameId,
+          creatorId: creator?.id,
+          creatorChatId: creator?.chatId,
+          hasNotificationService: !!this.notificationService
+        });
+      }
       
       await ctx.answerCbQuery();
     } catch (error) {
@@ -579,27 +604,57 @@ export class BotHandlers {
       } else {
         // Game completed, show result
         const result = moveResult.result;
+        if (!result) {
+          throw new Error('Resultado do jogo não encontrado');
+        }
+
         const isWinner = result.winnerId === ctx.state.user.id;
         const yourChoice = COIN_CHOICE_LABELS[choice];
-        const opponentChoice = result.winnerId === result.creatorChoice ? 'heads' : 'tails';
-        const opponentChoiceLabel = COIN_CHOICE_LABELS[opponentChoice as keyof typeof COIN_CHOICE_LABELS];
+        
+        // Buscar dados do jogo para ter acesso ao creatorId
+        const game = await gameService.getGameById(gameId);
+        if (!game) {
+          throw new Error('Jogo não encontrado');
+        }
+        
+        // Determinar se o usuário atual é o criador ou o player2
+        const isCreator = game.creatorId === ctx.state.user.id;
+        
+        // Determinar a escolha do oponente
+        let opponentChoice: 'heads' | 'tails';
+        if (isCreator) {
+          // Se você é o criador, a escolha do oponente é player2Choice
+          opponentChoice = result.player2Choice || 'heads';
+        } else {
+          // Se você é o player2, a escolha do oponente é creatorChoice
+          opponentChoice = result.creatorChoice || 'heads';
+        }
+        
+        const opponentChoiceLabel = COIN_CHOICE_LABELS[opponentChoice];
+        
+        // Determinar nome do oponente
+        const opponentName = isCreator ? result.player2Name : result.creatorName;
         
         let resultMessage: string;
         if (isWinner) {
           resultMessage = MESSAGES.MULTIPLAYER_RESULT_WIN(
-            gameId,
+            result.gameId,
             result.prizeAmount,
             opponentChoiceLabel,
             yourChoice,
-            result.winnerId === ctx.state.user.id ? result.player2Name : result.creatorName
+            opponentName || 'Adversário'
           );
         } else {
+          // Para calcular o valor da aposta perdida, usar o prizeAmount dividido por rake
+          const totalPool = result.prizeAmount + result.rakeAmount;
+          const betAmount = totalPool / 2; // Cada jogador apostou metade do pool total
+          
           resultMessage = MESSAGES.MULTIPLAYER_RESULT_LOSE(
-            gameId,
-            parseFloat(result.game?.betAmount || '0'),
+            result.gameId,
+            betAmount,
             opponentChoiceLabel,
             yourChoice,
-            result.winnerId === ctx.state.user.id ? result.player2Name : result.creatorName
+            opponentName || 'Adversário'
           );
         }
 

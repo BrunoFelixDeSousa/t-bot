@@ -13,6 +13,7 @@ export async function userMiddleware(ctx: GameContext, next: () => Promise<void>
     }
 
     const telegramId = ctx.from.id.toString();
+    const chatId = ctx.chat?.id.toString();
 
     // Buscar usuário existente
     let user = await userService.getUserByTelegramId(telegramId);
@@ -21,6 +22,7 @@ export async function userMiddleware(ctx: GameContext, next: () => Promise<void>
     if (!user) {
       user = await userService.findOrCreateUser({
         telegramId,
+        chatId,
         firstName: ctx.from.first_name,
         lastName: ctx.from.last_name,
         username: ctx.from.username,
@@ -29,8 +31,15 @@ export async function userMiddleware(ctx: GameContext, next: () => Promise<void>
       logger.info('New user registered', {
         userId: user.id,
         telegramId: user.telegramId,
+        chatId: user.chatId,
         username: user.username
       });
+    } else {
+      // Atualizar chatId se mudou
+      if (user.chatId !== chatId && chatId) {
+        await userService.updateUserChatId(user.id, chatId);
+        user.chatId = chatId;
+      }
     }
 
     // Adicionar ao contexto seguindo a estrutura do projeto original

@@ -145,4 +145,20 @@ export class UserService {
       // Não lança erro para não quebrar o fluxo principal
     }
   }
+
+  async updateUserChatId(userId: number, chatId: string): Promise<boolean> {
+    try {
+      await userRepository.updateChatId(userId, chatId);
+      
+      logger.info('ChatId do usuário atualizado', {
+        userId,
+        chatId,
+      });
+
+      return true;
+    } catch (error) {
+      logger.error('Error in UserService.updateUserChatId:', error);
+      throw new AppError('Erro interno do servidor', 500);
+    }
+  }
 }

@@ -53,6 +53,7 @@ export const matchTypeEnum = pgEnum('match_type', [
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
   telegramId: varchar('telegram_id', { length: 50 }).notNull().unique(),
+  chatId: varchar('chat_id', { length: 50 }), // Para notificações
   firstName: varchar('first_name', { length: 100 }),
   lastName: varchar('last_name', { length: 100 }),
   username: varchar('username', { length: 100 }),
