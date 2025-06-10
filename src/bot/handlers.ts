@@ -22,10 +22,18 @@ export class BotHandlers {
     this.userService = new UserService();
   }
 
+  /**
+   * Define o serviço de notificações para o bot
+   * @param notificationService - Instância do serviço de notificações
+   */
   setNotificationService(notificationService: NotificationService) {
     this.notificationService = notificationService;
   }
 
+  /**
+   * Registra todos os handlers do bot Telegram
+   * @param bot - Instância do bot Telegraf
+   */
   registerHandlers(bot: Telegraf<GameContext>) {
     // Comandos básicos
     bot.start(this.handleStart.bind(this));
@@ -75,6 +83,11 @@ export class BotHandlers {
     bot.action('back_bet_amount', this.handleBetAmountMenu.bind(this));
   }
 
+  /**
+   * Handler para o comando /start
+   * Inicializa o bot e exibe mensagem de boas-vindas com menu principal
+   * @param ctx - Contexto do Telegram
+   */
   async handleStart(ctx: GameContext) {
     try {
       const welcomeMessage = `
@@ -108,6 +121,11 @@ export class BotHandlers {
     }
   }
 
+  /**
+   * Handler para o comando /help
+   * Exibe informações de ajuda sobre o bot e seus comandos
+   * @param ctx - Contexto do Telegram
+   */
   async handleHelp(ctx: GameContext) {
     const helpMessage = `
       ❓ **Ajuda - Game Bot**
@@ -145,6 +163,11 @@ export class BotHandlers {
     }
   }
 
+  /**
+   * Handler para o comando /profile
+   * Exibe informações detalhadas do perfil do usuário
+   * @param ctx - Contexto do Telegram
+   */
   async handleProfile(ctx: GameContext) {
     try {
       if (!ctx.state?.user) {
@@ -185,6 +208,11 @@ export class BotHandlers {
     }
   }
 
+  /**
+   * Handler para o comando /balance
+   * Exibe o saldo atual do usuário
+   * @param ctx - Contexto do Telegram
+   */
   async handleBalance(ctx: GameContext) {
     try {
       if (!ctx.state?.user) {
@@ -207,6 +235,11 @@ export class BotHandlers {
     }
   }
 
+  /**
+   * Handler para exibir o menu de jogos
+   * Mostra os jogos disponíveis para o usuário escolher
+   * @param ctx - Contexto do Telegram
+   */
   async handleGameMenu(ctx: GameContext) {
     const gameMessage = `
       🎮 **Menu de Jogos**
@@ -233,6 +266,11 @@ export class BotHandlers {
     }
   }
 
+  /**
+   * Handler para exibir o menu da carteira
+   * Mostra opções de gerenciamento de saldo e transações
+   * @param ctx - Contexto do Telegram
+   */
   async handleWalletMenu(ctx: GameContext) {
     const walletMessage = `
       💰 **Carteira Digital**
@@ -260,6 +298,11 @@ export class BotHandlers {
     }
   }
 
+  /**
+   * Handler para exibir o ranking de jogadores
+   * Mostra informações sobre ranking e estatísticas (em desenvolvimento)
+   * @param ctx - Contexto do Telegram
+   */
   async handleRanking(ctx: GameContext) {
     const rankingMessage = `
       🏆 **Ranking de Jogadores**
@@ -287,6 +330,11 @@ export class BotHandlers {
     }
   }
 
+  /**
+   * Handler para voltar ao menu principal
+   * Exibe novamente o menu principal do bot
+   * @param ctx - Contexto do Telegram
+   */
   async handleBackToMain(ctx: GameContext) {
     const mainMessage = `
       🏠 **Menu Principal**
@@ -300,6 +348,11 @@ export class BotHandlers {
     });
   }
 
+  /**
+   * Handler para exibir saldo detalhado da carteira
+   * Mostra informações detalhadas sobre o saldo do usuário
+   * @param ctx - Contexto do Telegram
+   */
   async handleWalletBalance(ctx: GameContext) {
     const balanceMessage = `
       💰 **Saldo Detalhado**
@@ -318,6 +371,11 @@ export class BotHandlers {
     });
   }
 
+  /**
+   * Handler para ações da carteira (depósito, saque, histórico)
+   * Processa diferentes ações relacionadas à carteira do usuário
+   * @param ctx - Contexto do Telegram
+   */
   async handleWalletAction(ctx: GameContext) {
     const action = (ctx as any).match?.[1];
 
@@ -336,6 +394,11 @@ export class BotHandlers {
     }
   }
 
+  /**
+   * Handler para seleção de jogos
+   * Processa a seleção de diferentes tipos de jogos pelo usuário
+   * @param ctx - Contexto do Telegram
+   */
   async handleGameSelection(ctx: GameContext) {
     try {
       if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return;
@@ -384,6 +447,11 @@ export class BotHandlers {
     }
   }
 
+  /**
+   * Handler para seleção de valor de aposta
+   * Processa a escolha do valor da aposta e cria jogos baseado no contexto
+   * @param ctx - Contexto do Telegram
+   */
   async handleBetSelection(ctx: GameContext) {
     try {
       if (!ctx.callbackQuery || !('data' in ctx.callbackQuery) || !ctx.state?.user) return;
@@ -482,6 +550,12 @@ export class BotHandlers {
     }
   }
 
+  /**
+   * Handler para escolhas no jogo (DEPRECIADO)
+   * Método legado para jogos single-player, substituído pelo sistema multiplayer
+   * @param ctx - Contexto do Telegram
+   * @deprecated Use o sistema multiplayer em vez de jogos single-player
+   */
   async handleGameChoice(ctx: GameContext) {
     // DEPRECATED: This method was used for single-player games
     // All games are now multiplayer PvP
@@ -493,6 +567,11 @@ export class BotHandlers {
     }
   }
 
+  /**
+   * Handler para menu de seleção de valor de aposta
+   * Exibe o menu com opções de valores para apostar
+   * @param ctx - Contexto do Telegram
+   */
   async handleBetAmountMenu(ctx: GameContext) {
     try {
       await ctx.editMessageText(MESSAGES.SELECT_BET_AMOUNT, {
@@ -507,6 +586,11 @@ export class BotHandlers {
   }
 
   // Multiplayer handlers
+  /**
+   * Handler para criar partida de Cara ou Coroa
+   * Inicia o processo de criação de uma nova partida multiplayer de Cara ou Coroa
+   * @param ctx - Contexto do Telegram
+   */
   async handleCreateCoinFlip(ctx: GameContext) {
     try {
       // Show bet amount selection for creating a coin flip game
@@ -527,6 +611,11 @@ export class BotHandlers {
     }
   }
 
+  /**
+   * Handler para entrar em partida de Cara ou Coroa
+   * Exibe partidas disponíveis de Cara ou Coroa para o usuário entrar
+   * @param ctx - Contexto do Telegram
+   */
   async handleJoinCoinFlip(ctx: GameContext) {
     try {
       const { GameService } = await import('../services/game.service');
@@ -569,6 +658,11 @@ export class BotHandlers {
     }
   }
 
+  /**
+   * Handler para entrar em uma partida específica
+   * Processa a entrada do usuário em uma partida específica pelo ID
+   * @param ctx - Contexto do Telegram
+   */
   async handleJoinSpecificGame(ctx: GameContext) {
     try {
       if (!ctx.state?.user) {
@@ -628,6 +722,11 @@ export class BotHandlers {
     }
   }
 
+  /**
+   * Handler para fazer jogada em partida multiplayer
+   * Processa a jogada do usuário (heads/tails) e determina o resultado
+   * @param ctx - Contexto do Telegram
+   */
   async handleMakeMove(ctx: GameContext) {
     try {
       if (!ctx.state?.user) {
@@ -733,6 +832,11 @@ export class BotHandlers {
   // DOMINO HANDLERS
   // ==========================================
 
+  /**
+   * Handler para criar partida de Dominó
+   * Inicia o processo de criação de uma nova partida multiplayer de Dominó
+   * @param ctx - Contexto do Telegram
+   */
   async handleCreateDomino(ctx: GameContext) {
     try {
       if (!ctx.state?.user) {
@@ -771,6 +875,11 @@ export class BotHandlers {
     }
   }
 
+  /**
+   * Handler para entrar em partida de Dominó
+   * Exibe partidas de Dominó disponíveis para o usuário entrar
+   * @param ctx - Contexto do Telegram
+   */
   async handleJoinDomino(ctx: GameContext) {
     try {
       if (!ctx.state?.user) {
@@ -820,6 +929,11 @@ export class BotHandlers {
     }
   }
 
+  /**
+   * Handler para entrar em uma partida específica de Dominó
+   * Processa a entrada do usuário em uma partida específica de Dominó pelo ID
+   * @param ctx - Contexto do Telegram
+   */
   async handleJoinSpecificDomino(ctx: GameContext) {
     try {
       if (!ctx.state?.user) {
@@ -865,6 +979,11 @@ export class BotHandlers {
     }
   }
 
+  /**
+   * Handler para visualizar o estado atual de uma partida de Dominó
+   * Exibe o estado atual do jogo e as jogadas disponíveis para o usuário
+   * @param ctx - Contexto do Telegram
+   */
   async handleDominoState(ctx: GameContext) {
     try {
       if (!ctx.state?.user) {
@@ -922,6 +1041,11 @@ export class BotHandlers {
     }
   }
 
+  /**
+   * Handler para fazer uma jogada no Dominó
+   * Processa a jogada do usuário (peça e lado) em uma partida de Dominó
+   * @param ctx - Contexto do Telegram
+   */
   async handleDominoMove(ctx: GameContext) {
     try {
       if (!ctx.state?.user) {
@@ -1023,6 +1147,11 @@ export class BotHandlers {
     }
   }
 
+  /**
+   * Handler para passar a vez no Dominó
+   * Permite ao usuário passar a vez quando não há jogadas possíveis
+   * @param ctx - Contexto do Telegram
+   */
   async handleDominoPass(ctx: GameContext) {
     try {
       if (!ctx.state?.user) {
