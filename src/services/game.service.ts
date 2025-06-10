@@ -1,8 +1,9 @@
 import { config } from '../config';
 import { gameRepository, transactionRepository } from '../database/repositories';
 import { CoinFlip } from '../games/CoinFlip';
+import { Domino } from '../games/Domino';
 import { AppError } from '../types';
-import { CoinFlipGameData, CreateGameInput, Game, GameMoveResult, GameResult, MultiplayerGameResult } from '../types/game';
+import { CoinFlipGameData, CreateGameInput, DominoGameData, DominoMoveResult, DominoPiece, Game, GameMoveResult, GameResult, MultiplayerGameResult } from '../types/game';
 import { logger } from '../utils/logger';
 import { UserService } from './user.service';
 
@@ -483,6 +484,269 @@ export class GameService {
 
   async getUserGames(userId: number, limit: number = 20): Promise<Game[]> {
     return await gameRepository.findByCreatorId(userId, limit);
+  }
+
+  /**
+   * Create a Domino game (multiplayer only)
+   */
+  async createDominoGame(userId: number, betAmount: number): Promise<Game> {
+    return this.createGame(userId, {
+      gameType: 'domino',
+      betAmount,
+      matchType: 'multiplayer'
+    });
+  }
+
+  /**
+   * Make a move in a Domino game
+   */
+  async makeDominoMove(gameId: number, userId: number, pieceId: string, side: 'left' | 'right'): Promise<DominoMoveResult> {
+    try {
+      const game = await gameRepository.findById(gameId);
+      if (!game) {
+        throw new AppError('Jogo não encontrado', 404);
+      }
+
+      // Validar se é participante do jogo
+      if (game.creatorId !== userId && game.player2Id !== userId) {
+        throw new AppError('Você não é participante deste jogo', 403);
+      }
+
+      // Validar status do jogo
+      if (game.status !== 'active') {
+        throw new AppError('Jogo não está ativo', 400);
+      }
+
+      // Validar tipo de jogo
+      if (game.gameType !== 'domino') {
+        throw new AppError('Tipo de jogo inválido para esta operação', 400);
+      }
+
+      // Recuperar ou criar estado do jogo
+      let gameData: DominoGameData = (game.gameData as DominoGameData);
+      
+      // Se não há gameData, inicializar o jogo Domino
+      if (!gameData || !gameData.deck) {
+        const dominoGame = Domino.create(parseFloat(game.betAmount), game.creatorId, game.player2Id!);
+        gameData = dominoGame.getGameState();
+        await gameRepository.updateGameData(gameId, gameData);
+      }
+
+      // Criar instância do jogo com estado atual
+      const dominoGame = Domino.create(parseFloat(game.betAmount), game.creatorId, game.player2Id!);
+      dominoGame.setGameState(gameData);
+
+      // Verificar se é a vez do jogador
+      if (dominoGame.getGameState().currentPlayer !== userId.toString()) {
+        throw new AppError('Não é sua vez de jogar', 400);
+      }
+
+      // Fazer a jogada
+      const moveSuccess = dominoGame.makeMove(userId.toString(), pieceId, side);
+      if (!moveSuccess) {
+        throw new AppError('Jogada inválida', 400);
+      }
+
+      // Atualizar estado no banco
+      const updatedGameData = dominoGame.getGameState();
+      await gameRepository.updateGameData(gameId, updatedGameData);
+
+      // Verificar se o jogo terminou
+      if (dominoGame.isGameOver()) {
+        const result = dominoGame.determineWinner(game.creatorId.toString(), game.player2Id!.toString());
+        const multiplayerResult = await this.processDominoResult(game, result);
+        
+        return { 
+          waiting: false, 
+          result: multiplayerResult,
+          gameState: updatedGameData,
+          gameInterface: dominoGame.generateGameInterface(userId.toString())
+        };
+      } else {
+        // Jogo continua
+        const availableMoves = dominoGame.getAvailableMoves(updatedGameData.currentPlayer);
+        
+        return { 
+          waiting: true,
+          gameState: updatedGameData,
+          availableMoves,
+          gameInterface: dominoGame.generateGameInterface(updatedGameData.currentPlayer)
+        };
+      }
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      logger.error('Error making domino move:', error);
+      throw new AppError('Erro ao fazer jogada no dominó', 500);
+    }
+  }
+
+  /**
+   * Get current state of a Domino game
+   */
+  async getDominoGameState(gameId: number, userId: number): Promise<{ gameState: DominoGameData; gameInterface: string; availableMoves: Array<{ piece: DominoPiece; sides: ('left' | 'right')[] }> }> {
+    try {
+      const game = await gameRepository.findById(gameId);
+      if (!game) {
+        throw new AppError('Jogo não encontrado', 404);
+      }
+
+      // Validar se é participante do jogo
+      if (game.creatorId !== userId && game.player2Id !== userId) {
+        throw new AppError('Você não é participante deste jogo', 403);
+      }
+
+      // Validar tipo de jogo
+      if (game.gameType !== 'domino') {
+        throw new AppError('Tipo de jogo inválido', 400);
+      }
+
+      const gameData: DominoGameData = (game.gameData as DominoGameData);
+      if (!gameData || !gameData.deck) {
+        throw new AppError('Estado do jogo não encontrado', 400);
+      }
+
+      // Criar instância do jogo com estado atual
+      const dominoGame = Domino.create(parseFloat(game.betAmount), game.creatorId, game.player2Id!);
+      dominoGame.setGameState(gameData);
+
+      const availableMoves = dominoGame.getAvailableMoves(userId.toString());
+      const gameInterface = dominoGame.generateGameInterface(userId.toString());
+
+      return {
+        gameState: gameData,
+        gameInterface,
+        availableMoves
+      };
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      logger.error('Error getting domino game state:', error);
+      throw new AppError('Erro ao obter estado do jogo', 500);
+    }
+  }
+
+  /**
+   * Process Domino game result
+   */
+  private async processDominoResult(game: Game, result: GameResult): Promise<MultiplayerGameResult> {
+    try {
+      const betAmount = parseFloat(game.betAmount);
+      const rakePercentage = config.game.rakePercentage / 100;
+      const totalPool = betAmount * 2;
+      const rakeAmount = totalPool * rakePercentage;
+      const prizeAmount = totalPool - rakeAmount;
+
+      let winnerId: number | null = null;
+      let resultType: 'creator_wins' | 'player2_wins' | 'creator_wins_tie';
+
+      if (result.winner === 'player') {
+        winnerId = game.creatorId;
+        resultType = 'creator_wins';
+      } else if (result.winner === 'house') {
+        winnerId = game.player2Id!;
+        resultType = 'player2_wins';
+      } else {
+        // Empate - devolver apostas
+        winnerId = null;
+        resultType = 'creator_wins_tie';
+      }
+
+      // Processar pagamentos
+      if (winnerId) {
+        await this.userService.updateUserBalance(
+          winnerId,
+          prizeAmount.toFixed(2),
+          'add'
+        );
+
+        // Registrar transação de ganho
+        const winner = await this.userService.getUserById(winnerId);
+        if (winner) {
+          await transactionRepository.create({
+            userId: winnerId,
+            type: 'bet_win',
+            amount: prizeAmount.toFixed(2),
+            balanceBefore: (parseFloat(winner.balance) - prizeAmount).toFixed(2),
+            balanceAfter: winner.balance,
+            description: `Vitória Dominó PvP - Jogo #${game.id}`,
+          });
+        }
+
+        // Registrar transação de derrota para o perdedor
+        const loserId = winnerId === game.creatorId ? game.player2Id : game.creatorId;
+        if (loserId) {
+          const loser = await this.userService.getUserById(loserId);
+          if (loser) {
+            await transactionRepository.create({
+              userId: loserId,
+              type: 'bet_loss',
+              amount: betAmount.toFixed(2),
+              balanceBefore: (parseFloat(loser.balance) + betAmount).toFixed(2),
+              balanceAfter: loser.balance,
+              description: `Derrota Dominó PvP - Jogo #${game.id}`,
+            });
+          }
+        }
+      } else {
+        // Empate - devolver apostas aos dois jogadores
+        await this.userService.updateUserBalance(game.creatorId, betAmount.toFixed(2), 'add');
+        await this.userService.updateUserBalance(game.player2Id!, betAmount.toFixed(2), 'add');
+
+        // Registrar transações de devolução
+        const creator = await this.userService.getUserById(game.creatorId);
+        const player2 = await this.userService.getUserById(game.player2Id!);
+
+        if (creator) {
+          await transactionRepository.create({
+            userId: game.creatorId,
+            type: 'bet_win',
+            amount: betAmount.toFixed(2),
+            balanceBefore: (parseFloat(creator.balance) - betAmount).toFixed(2),
+            balanceAfter: creator.balance,
+            description: `Empate Dominó - Devolução Jogo #${game.id}`,
+          });
+        }
+
+        if (player2) {
+          await transactionRepository.create({
+            userId: game.player2Id!,
+            type: 'bet_win',
+            amount: betAmount.toFixed(2),
+            balanceBefore: (parseFloat(player2.balance) - betAmount).toFixed(2),
+            balanceAfter: player2.balance,
+            description: `Empate Dominó - Devolução Jogo #${game.id}`,
+          });
+        }
+      }
+
+      // Completar jogo
+      const finalPrize = winnerId ? prizeAmount : betAmount;
+      await gameRepository.completeGame(
+        game.id,
+        winnerId,
+        finalPrize.toFixed(2),
+        rakeAmount.toFixed(2)
+      );
+
+      // Buscar nomes dos jogadores para o resultado
+      const creator = await this.userService.getUserById(game.creatorId);
+      const player2 = await this.userService.getUserById(game.player2Id!);
+
+      return {
+        gameId: game.id,
+        winnerId,
+        winnerName: winnerId === game.creatorId ? creator?.firstName : player2?.firstName,
+        creatorChoice: 'domino' as 'heads' | 'tails',
+        player2Choice: 'domino' as 'heads' | 'tails',
+        creatorName: creator?.firstName,
+        player2Name: player2?.firstName,
+        prizeAmount: finalPrize,
+        rakeAmount,
+        result: resultType,
+      };
+    } catch (error) {
+      logger.error('Error processing domino result:', error);
+      throw error;
+    }
   }
 
   // ==========================================

@@ -132,3 +132,67 @@ export const GAME_TYPES_INFO = {
     averageTime: '30-60 minutos',
   },
 } as const;
+
+// Domino specific types
+export interface DominoPiece {
+  left: number;
+  right: number;
+  id: string;
+}
+
+export interface DominoGameState {
+  deck: DominoPiece[];
+  table: DominoPiece[];
+  playerHands: { [playerId: string]: DominoPiece[] };
+  leftEnd: number | null;
+  rightEnd: number | null;
+  currentPlayer: string;
+  round: number;
+  maxRounds: number;
+  scores: { [playerId: string]: number };
+  gameStarted: boolean;
+  isBlocked: boolean;
+  lastMove?: {
+    playerId: string;
+    piece: DominoPiece;
+    side: 'left' | 'right';
+  };
+}
+
+export interface DominoGameData {
+  deck: DominoPiece[];
+  table: DominoPiece[];
+  playerHands: { [playerId: string]: DominoPiece[] };
+  leftEnd: number | null;
+  rightEnd: number | null;
+  currentPlayer: string;
+  round: number;
+  maxRounds: number;
+  scores: { [playerId: string]: number };
+  gameStarted: boolean;
+  isBlocked: boolean;
+  lastMove?: {
+    playerId: string;
+    piece: DominoPiece;
+    side: 'left' | 'right';
+  };
+}
+
+export interface DominoMoveInput {
+  pieceId: string;
+  side: 'left' | 'right';
+}
+
+export interface DominoMoveResult extends GameMoveResult {
+  gameState?: DominoGameState;
+  availableMoves?: Array<{ piece: DominoPiece; sides: ('left' | 'right')[] }>;
+  gameInterface?: string;
+}
+
+// Validation schemas
+export const dominoMoveSchema = z.object({
+  pieceId: z.string(),
+  side: z.enum(['left', 'right']),
+});
+
+export type DominoMoveInputValidated = z.infer<typeof dominoMoveSchema>;

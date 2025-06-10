@@ -56,6 +56,14 @@ export class BotHandlers {
     bot.action(/^join_game_(.+)$/, this.handleJoinSpecificGame.bind(this));
     bot.action(/^make_move_(.+)_(.+)$/, this.handleMakeMove.bind(this));
     
+    // Callbacks específicos do Domino multiplayer
+    bot.action('create_domino', this.handleCreateDomino.bind(this));
+    bot.action('join_domino', this.handleJoinDomino.bind(this));
+    bot.action(/^join_domino_(.+)$/, this.handleJoinSpecificDomino.bind(this));
+    bot.action(/^domino_state_(.+)$/, this.handleDominoState.bind(this));
+    bot.action(/^domino_move_(.+)_(.+)_(.+)$/, this.handleDominoMove.bind(this));
+    bot.action(/^domino_pass_(.+)$/, this.handleDominoPass.bind(this));
+    
     // Callbacks de apostas
     bot.action(/^bet_(.+)$/, this.handleBetSelection.bind(this));
     
@@ -354,6 +362,19 @@ export class BotHandlers {
         case 'dice':
           await ctx.answerCbQuery('🎲 Dados em desenvolvimento!');
           break;
+        case 'domino':
+          // Show multiplayer options for domino
+          await ctx.editMessageText(MESSAGES.DOMINO_MULTIPLAYER_OPTIONS, {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🆕 Criar Partida', callback_data: 'create_domino' }],
+                [{ text: '🔍 Entrar em Partida', callback_data: 'join_domino' }],
+                [{ text: '⬅️ Voltar', callback_data: 'back_games' }]
+              ]
+            }
+          });
+          break;
         default:
           await ctx.answerCbQuery('Jogo não encontrado.');
       }
@@ -401,6 +422,38 @@ export class BotHandlers {
           reply_markup: {
             inline_keyboard: [
               [{ text: '🎮 Criar Outra Partida', callback_data: 'create_coin_flip' }],
+              [{ text: '🏠 Menu Principal', callback_data: 'back_main' }]
+            ]
+          }
+        });
+        
+        // Clear session
+        if (ctx.session) {
+          delete ctx.session.action;
+        }
+      } else if (ctx.session?.action === 'create_domino') {
+        // Check balance for domino
+        const userBalance = parseFloat(ctx.state.user.balance);
+        if (userBalance < betAmount) {
+          await ctx.answerCbQuery(MESSAGES.INSUFFICIENT_BALANCE);
+          return;
+        }
+
+        // Create multiplayer domino game
+        const { GameService } = await import('../services/game.service');
+        const gameService = new GameService();
+        
+        const game = await gameService.createGame(ctx.state.user.id, {
+          gameType: 'domino',
+          betAmount,
+          matchType: 'multiplayer'
+        });
+
+        await ctx.editMessageText(MESSAGES.DOMINO_GAME_CREATED(game.id, betAmount), {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🎮 Criar Outra Partida', callback_data: 'create_domino' }],
               [{ text: '🏠 Menu Principal', callback_data: 'back_main' }]
             ]
           }
@@ -673,6 +726,333 @@ export class BotHandlers {
     } catch (error) {
       logger.error('Error making move:', error);
       await ctx.answerCbQuery('❌ ' + (error instanceof Error ? error.message : 'Erro ao fazer jogada'));
+    }
+  }
+
+  // ==========================================
+  // DOMINO HANDLERS
+  // ==========================================
+
+  async handleCreateDomino(ctx: GameContext) {
+    try {
+      if (!ctx.state?.user) {
+        await ctx.answerCbQuery('❌ Erro: Usuário não encontrado');
+        return;
+      }
+
+      // Set session action for bet selection
+      ctx.session = { ...ctx.session, action: 'create_domino' };
+
+      await ctx.editMessageText(MESSAGES.SELECT_BET_AMOUNT, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'R$ 5,00', callback_data: 'bet_5' },
+              { text: 'R$ 10,00', callback_data: 'bet_10' }
+            ],
+            [
+              { text: 'R$ 25,00', callback_data: 'bet_25' },
+              { text: 'R$ 50,00', callback_data: 'bet_50' }
+            ],
+            [
+              { text: 'R$ 100,00', callback_data: 'bet_100' },
+              { text: '✏️ Personalizado', callback_data: 'bet_custom' }
+            ],
+            [{ text: '⬅️ Voltar', callback_data: 'game_domino' }]
+          ]
+        }
+      });
+
+      await ctx.answerCbQuery();
+    } catch (error) {
+      logger.error('Error creating domino game:', error);
+      await ctx.answerCbQuery('❌ Erro ao criar partida de dominó');
+    }
+  }
+
+  async handleJoinDomino(ctx: GameContext) {
+    try {
+      if (!ctx.state?.user) {
+        await ctx.answerCbQuery('❌ Erro: Usuário não encontrado');
+        return;
+      }
+
+      const { GameService } = await import('../services/game.service');
+      const gameService = new GameService();
+      
+      // Get available domino games
+      const availableGames = await gameService.getAvailableGames('domino', 10);
+      
+      if (availableGames.length === 0) {
+        await ctx.editMessageText(MESSAGES.NO_AVAILABLE_GAMES, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🆕 Criar Partida', callback_data: 'create_domino' }],
+              [{ text: '⬅️ Voltar', callback_data: 'game_domino' }]
+            ]
+          }
+        });
+        await ctx.answerCbQuery();
+        return;
+      }
+
+      // Show available games
+      const keyboard = availableGames.map(game => [
+        { 
+          text: `🀱 #${game.id} - R$ ${parseFloat(game.betAmount).toFixed(2)}`, 
+          callback_data: `join_domino_${game.id}` 
+        }
+      ]);
+      
+      keyboard.push([{ text: '⬅️ Voltar', callback_data: 'game_domino' }]);
+
+      await ctx.editMessageText(MESSAGES.AVAILABLE_GAMES, {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: keyboard }
+      });
+
+      await ctx.answerCbQuery();
+    } catch (error) {
+      logger.error('Error joining domino game:', error);
+      await ctx.answerCbQuery('❌ Erro ao buscar partidas');
+    }
+  }
+
+  async handleJoinSpecificDomino(ctx: GameContext) {
+    try {
+      if (!ctx.state?.user) {
+        await ctx.answerCbQuery('❌ Erro: Usuário não encontrado');
+        return;
+      }
+
+      const gameId = parseInt((ctx as any).match?.[1]);
+      if (!gameId) {
+        await ctx.answerCbQuery('❌ ID da partida inválido');
+        return;
+      }
+
+      const { GameService } = await import('../services/game.service');
+      const gameService = new GameService();
+      
+      // Join the game
+      const game = await gameService.joinGame(gameId, ctx.state.user.id);
+      
+      // Get creator info for display
+      const { UserService } = await import('../services/user.service');
+      const userService = new UserService();
+      const creator = await userService.getUserById(game.creatorId);
+
+      await ctx.editMessageText(MESSAGES.DOMINO_GAME_JOINED(
+        game.id, 
+        creator?.firstName || 'Jogador', 
+        parseFloat(game.betAmount)
+      ), {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🎮 Ver Estado do Jogo', callback_data: `domino_state_${game.id}` }],
+            [{ text: '🏠 Menu Principal', callback_data: 'back_main' }]
+          ]
+        }
+      });
+
+      await ctx.answerCbQuery();
+    } catch (error) {
+      logger.error('Error joining specific domino game:', error);
+      await ctx.answerCbQuery('❌ ' + (error instanceof Error ? error.message : 'Erro ao entrar na partida'));
+    }
+  }
+
+  async handleDominoState(ctx: GameContext) {
+    try {
+      if (!ctx.state?.user) {
+        await ctx.answerCbQuery('❌ Erro: Usuário não encontrado');
+        return;
+      }
+
+      const gameId = parseInt((ctx as any).match?.[1]);
+      if (!gameId) {
+        await ctx.answerCbQuery('❌ ID da partida inválido');
+        return;
+      }
+
+      const { GameService } = await import('../services/game.service');
+      const gameService = new GameService();
+      
+      const gameState = await gameService.getDominoGameState(gameId, ctx.state.user.id);
+      
+      // Create keyboard for available moves
+      const keyboard: any[][] = [];
+      
+      if (gameState.gameState.currentPlayer === ctx.state.user.id.toString()) {
+        // It's player's turn - show available moves
+        gameState.availableMoves.slice(0, 6).forEach(move => {
+          const piece = move.piece;
+          move.sides.forEach(side => {
+            const sideEmoji = side === 'left' ? '⬅️' : '➡️';
+            keyboard.push([{
+              text: `[${piece.left}●${piece.right}] ${sideEmoji}`,
+              callback_data: `domino_move_${gameId}_${piece.id}_${side}`
+            }]);
+          });
+        });
+
+        if (gameState.availableMoves.length === 0) {
+          keyboard.push([{
+            text: '⏭️ PASSAR',
+            callback_data: `domino_pass_${gameId}`
+          }]);
+        }
+      }
+      
+      keyboard.push([{ text: '🔄 Atualizar', callback_data: `domino_state_${gameId}` }]);
+      keyboard.push([{ text: '🏠 Menu Principal', callback_data: 'back_main' }]);
+
+      await ctx.editMessageText(gameState.gameInterface, {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: keyboard }
+      });
+
+      await ctx.answerCbQuery();
+    } catch (error) {
+      logger.error('Error getting domino state:', error);
+      await ctx.answerCbQuery('❌ ' + (error instanceof Error ? error.message : 'Erro ao obter estado do jogo'));
+    }
+  }
+
+  async handleDominoMove(ctx: GameContext) {
+    try {
+      if (!ctx.state?.user) {
+        await ctx.answerCbQuery('❌ Erro: Usuário não encontrado');
+        return;
+      }
+
+      const gameId = parseInt((ctx as any).match?.[1]);
+      const pieceId = (ctx as any).match?.[2];
+      const side = (ctx as any).match?.[3] as 'left' | 'right';
+      
+      if (!gameId || !pieceId || !side) {
+        await ctx.answerCbQuery('❌ Dados da jogada inválidos');
+        return;
+      }
+
+      const { GameService } = await import('../services/game.service');
+      const gameService = new GameService();
+      
+      const moveResult = await gameService.makeDominoMove(gameId, ctx.state.user.id, pieceId, side);
+      
+      if (moveResult.waiting) {
+        // Game continues - update interface
+        const keyboard: any[][] = [];
+        
+        if (moveResult.gameState?.currentPlayer === ctx.state.user.id.toString()) {
+          // Still player's turn or became player's turn again
+          moveResult.availableMoves?.slice(0, 6).forEach(move => {
+            const piece = move.piece;
+            move.sides.forEach(side => {
+              const sideEmoji = side === 'left' ? '⬅️' : '➡️';
+              keyboard.push([{
+                text: `[${piece.left}●${piece.right}] ${sideEmoji}`,
+                callback_data: `domino_move_${gameId}_${piece.id}_${side}`
+              }]);
+            });
+
+            if (!moveResult.availableMoves || moveResult.availableMoves.length === 0) {
+              keyboard.push([{
+                text: '⏭️ PASSAR',
+                callback_data: `domino_pass_${gameId}`
+              }]);
+            }
+          });
+        }
+        
+        keyboard.push([{ text: '🔄 Atualizar', callback_data: `domino_state_${gameId}` }]);
+        keyboard.push([{ text: '🏠 Menu Principal', callback_data: 'back_main' }]);
+
+        await ctx.editMessageText(moveResult.gameInterface || MESSAGES.DOMINO_WAITING_OPPONENT, {
+          parse_mode: 'Markdown',
+          reply_markup: { inline_keyboard: keyboard }
+        });
+      } else {
+        // Game completed - show result
+        const result = moveResult.result;
+        if (!result) {
+          throw new Error('Resultado do jogo não encontrado');
+        }
+
+        const isWinner = result.winnerId === ctx.state.user.id;
+        let resultMessage: string;
+
+        if (isWinner) {
+          resultMessage = MESSAGES.DOMINO_RESULT_WIN(
+            result.gameId,
+            result.prizeAmount,
+            'Você venceu no dominó!'
+          );
+        } else if (result.winnerId === null) {
+          resultMessage = MESSAGES.DOMINO_RESULT_TIE(
+            result.gameId,
+            'Empate! Apostas devolvidas.'
+          );
+        } else {
+          const betAmount = result.prizeAmount + result.rakeAmount;
+          resultMessage = MESSAGES.DOMINO_RESULT_LOSE(
+            result.gameId,
+            betAmount / 2,
+            'Seu adversário venceu.'
+          );
+        }
+
+        await ctx.editMessageText(resultMessage, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🎮 Jogar Novamente', callback_data: 'game_domino' }],
+              [{ text: '🏠 Menu Principal', callback_data: 'back_main' }]
+            ]
+          }
+        });
+      }
+      
+      await ctx.answerCbQuery();
+    } catch (error) {
+      logger.error('Error making domino move:', error);
+      await ctx.answerCbQuery('❌ ' + (error instanceof Error ? error.message : 'Erro ao fazer jogada'));
+    }
+  }
+
+  async handleDominoPass(ctx: GameContext) {
+    try {
+      if (!ctx.state?.user) {
+        await ctx.answerCbQuery('❌ Erro: Usuário não encontrado');
+        return;
+      }
+
+      const gameId = parseInt((ctx as any).match?.[1]);
+      if (!gameId) {
+        await ctx.answerCbQuery('❌ ID da partida inválido');
+        return;
+      }
+
+      // For now, just update the game state to show opponent's turn
+      // In a full implementation, you would handle the pass logic
+      
+      await ctx.editMessageText(MESSAGES.DOMINO_WAITING_OPPONENT, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Atualizar', callback_data: `domino_state_${gameId}` }],
+            [{ text: '🏠 Menu Principal', callback_data: 'back_main' }]
+          ]
+        }
+      });
+
+      await ctx.answerCbQuery('⏭️ Você passou a vez');
+    } catch (error) {
+      logger.error('Error passing domino turn:', error);
+      await ctx.answerCbQuery('❌ Erro ao passar a vez');
     }
   }
 }

@@ -15,6 +15,7 @@ export const gameMenuKeyboard: Markup.Markup<InlineKeyboardMarkup> = Markup.inli
   [Markup.button.callback('🪙 Cara ou Coroa', 'game_coin_flip')],
   [Markup.button.callback('✂️ Pedra/Papel/Tesoura', 'game_rock_paper_scissors')],
   [Markup.button.callback('🎲 Dados', 'game_dice')],
+  [Markup.button.callback('🀱 Dominó', 'game_domino')],
   [Markup.button.callback('⬅️ Voltar', 'back_main')]
 ]);
 
