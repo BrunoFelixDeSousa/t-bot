@@ -1,13 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { UserService } from '@/services/user.service';
 import { Telegraf } from 'telegraf';
-import { EMOJIS } from '../utils/constants';
+import { COIN_CHOICES, COIN_CHOICE_LABELS, EMOJIS, GAME_TYPES, MESSAGES } from '../utils/constants';
 import { formatCurrency } from '../utils/helpers';
 import { logger } from '../utils/logger';
 import { GameContext } from './context';
 import {
+  betAmountKeyboard,
+  coinFlipChoiceKeyboard,
   gameMenuKeyboard,
   mainMenuKeyboard,
+  playAgainKeyboard,
   walletMenuKeyboard,
 } from './keyboards';
 
@@ -41,6 +44,16 @@ export class BotHandlers {
     
     // Callbacks de jogos
     bot.action(/^game_(.+)$/, this.handleGameSelection.bind(this));
+    
+    // Callbacks de apostas
+    bot.action(/^bet_(.+)$/, this.handleBetSelection.bind(this));
+    
+    // Callbacks de escolhas do jogo
+    bot.action(/^choice_(.+)$/, this.handleGameChoice.bind(this));
+    
+    // Callbacks de navegação específica
+    bot.action('back_games', this.handleGameMenu.bind(this));
+    bot.action('back_bet_amount', this.handleBetAmountMenu.bind(this));
   }
 
   async handleStart(ctx: GameContext) {
@@ -305,20 +318,143 @@ export class BotHandlers {
   }
 
   async handleGameSelection(ctx: GameContext) {
-    const action = (ctx as any).match?.[1];
+    try {
+      if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return;
 
-    switch (action) {
-      case 'coin_flip':
-        await ctx.answerCbQuery('🪙 Cara ou Coroa em desenvolvimento!');
-        break;
-      case 'rock_paper_scissors':
-        await ctx.answerCbQuery('✂️ Pedra/Papel/Tesoura em desenvolvimento!');
-        break;
-      case 'dice':
-        await ctx.answerCbQuery('🎲 Dados em desenvolvimento!');
-        break;
-      default:
-        await ctx.answerCbQuery('Jogo não encontrado.');
+      const action = (ctx as any).match?.[1];
+
+      switch (action) {
+        case 'coin_flip':
+          // Show bet amount selection for coin flip
+          await ctx.editMessageText(MESSAGES.SELECT_BET_AMOUNT, {
+            parse_mode: 'Markdown',
+            ...betAmountKeyboard,
+          });
+          // Store selected game in session
+          if (ctx.session) {
+            ctx.session.selectedGame = GAME_TYPES.COIN_FLIP;
+          }
+          break;
+        case 'rock_paper_scissors':
+          await ctx.answerCbQuery('✂️ Pedra/Papel/Tesoura em desenvolvimento!');
+          break;
+        case 'dice':
+          await ctx.answerCbQuery('🎲 Dados em desenvolvimento!');
+          break;
+        default:
+          await ctx.answerCbQuery('Jogo não encontrado.');
+      }
+    } catch (error) {
+      logger.error('Error in game selection:', error);
+      await ctx.answerCbQuery('❌ Erro ao selecionar jogo.');
+    }
+  }
+
+  async handleBetSelection(ctx: GameContext) {
+    try {
+      if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return;
+
+      const betData = (ctx as any).match?.[1];
+      
+      if (betData === 'custom') {
+        await ctx.editMessageText('💰 Digite o valor da aposta (ex: 10.50):');
+        await ctx.answerCbQuery();
+        return;
+      }
+
+      const betAmount = parseInt(betData) / 100; // Convert cents to reais
+      
+      // Store bet amount in session
+      if (ctx.session) {
+        ctx.session.betAmount = betAmount;
+      }
+
+      // Show coin flip choices
+      await ctx.editMessageText(MESSAGES.COIN_FLIP_CHOICE(betAmount), {
+        parse_mode: 'Markdown',
+        ...coinFlipChoiceKeyboard,
+      });
+      
+      await ctx.answerCbQuery();
+    } catch (error) {
+      logger.error('Error in bet selection:', error);
+      await ctx.answerCbQuery('❌ Erro ao selecionar aposta.');
+    }
+  }
+
+  async handleGameChoice(ctx: GameContext) {
+    try {
+      if (!ctx.callbackQuery || !('data' in ctx.callbackQuery) || !ctx.state?.user) return;
+
+      const choice = (ctx as any).match?.[1];
+      const betAmount = ctx.session?.betAmount;
+      const gameType = ctx.session?.selectedGame;
+
+      if (!betAmount || !gameType) {
+        await ctx.answerCbQuery(MESSAGES.INVALID_SESSION);
+        return;
+      }
+
+      // Check balance
+      const userBalance = parseFloat(ctx.state.user.balance);
+      if (userBalance < betAmount) {
+        await ctx.answerCbQuery(MESSAGES.INSUFFICIENT_BALANCE);
+        return;
+      }
+
+      if (gameType === GAME_TYPES.COIN_FLIP && (choice === COIN_CHOICES.HEADS || choice === COIN_CHOICES.TAILS)) {
+        // Import GameService
+        const { GameService } = await import('../services/game.service');
+        const gameService = new GameService();
+
+        // Create and play the game
+        const gameResult = await gameService.createAndPlayGame({
+          userId: ctx.state.user.id,
+          gameType: 'coin_flip',
+          betAmount: betAmount * 100, // Convert to cents
+          gameData: { playerChoice: choice }
+        });
+
+        // Format result message
+        let resultMessage: string;
+        const playerChoiceLabel = COIN_CHOICE_LABELS[choice as keyof typeof COIN_CHOICE_LABELS];
+        const botChoiceLabel = COIN_CHOICE_LABELS[gameResult.result.botChoice as keyof typeof COIN_CHOICE_LABELS];
+
+        if (gameResult.result.winner === 'player') {
+          resultMessage = MESSAGES.COIN_FLIP_WIN(betAmount, gameResult.result.winnings, playerChoiceLabel, botChoiceLabel);
+        } else {
+          resultMessage = MESSAGES.COIN_FLIP_LOSE(betAmount, playerChoiceLabel, botChoiceLabel);
+        }
+
+        await ctx.editMessageText(resultMessage, {
+          parse_mode: 'Markdown',
+          ...playAgainKeyboard,
+        });
+
+        // Clear session
+        if (ctx.session) {
+          delete ctx.session.selectedGame;
+          delete ctx.session.betAmount;
+        }
+      }
+
+      await ctx.answerCbQuery();
+    } catch (error) {
+      logger.error('Error in game choice:', error);
+      await ctx.answerCbQuery('❌ Erro ao processar jogada.');
+    }
+  }
+
+  async handleBetAmountMenu(ctx: GameContext) {
+    try {
+      await ctx.editMessageText(MESSAGES.SELECT_BET_AMOUNT, {
+        parse_mode: 'Markdown',
+        ...betAmountKeyboard,
+      });
+      await ctx.answerCbQuery();
+    } catch (error) {
+      logger.error('Error in bet amount menu:', error);
+      await ctx.answerCbQuery('❌ Erro ao carregar menu de apostas.');
     }
   }
 }

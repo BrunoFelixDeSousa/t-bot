@@ -12,6 +12,11 @@ export const config: Config = {
   database: {
     url: process.env.DATABASE_URL!,
   },
+  game: {
+    minBetAmount: parseFloat(process.env.MIN_BET_AMOUNT || '5.00'),
+    maxBetAmount: parseFloat(process.env.MAX_BET_AMOUNT || '1000.00'),
+    rakePercentage: parseFloat(process.env.RAKE_PERCENTAGE || '5.0'),
+  },
   admin: {
     telegramIds: process.env.ADMIN_TELEGRAM_ID
       ? [parseInt(process.env.ADMIN_TELEGRAM_ID)]

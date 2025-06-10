@@ -1,4 +1,4 @@
-import { EMOJIS } from '@/utils/constants';
+import { BET_AMOUNTS, COIN_CHOICE_LABELS, EMOJIS } from '@/utils/constants';
 import { Markup } from 'telegraf';
 import { InlineKeyboardMarkup } from 'telegraf/typings/core/types/typegram';
 
@@ -24,5 +24,40 @@ export const walletMenuKeyboard: Markup.Markup<InlineKeyboardMarkup> = Markup.in
   [Markup.button.callback('💸 Sacar', 'wallet_withdraw')],
   [Markup.button.callback('📋 Histórico', 'wallet_history')],
   [Markup.button.callback('⬅️ Voltar', 'back_main')]
+]);
+
+// Bet amount selection keyboard
+export const betAmountKeyboard: Markup.Markup<InlineKeyboardMarkup> = Markup.inlineKeyboard([
+  [
+    Markup.button.callback(`R$ ${(BET_AMOUNTS[0] / 100).toFixed(2)}`, `bet_${BET_AMOUNTS[0]}`),
+    Markup.button.callback(`R$ ${(BET_AMOUNTS[1] / 100).toFixed(2)}`, `bet_${BET_AMOUNTS[1]}`),
+  ],
+  [
+    Markup.button.callback(`R$ ${(BET_AMOUNTS[2] / 100).toFixed(2)}`, `bet_${BET_AMOUNTS[2]}`),
+    Markup.button.callback(`R$ ${(BET_AMOUNTS[3] / 100).toFixed(2)}`, `bet_${BET_AMOUNTS[3]}`),
+  ],
+  [
+    Markup.button.callback(`R$ ${(BET_AMOUNTS[4] / 100).toFixed(2)}`, `bet_${BET_AMOUNTS[4]}`),
+    Markup.button.callback(`${EMOJIS.CUSTOM} Personalizado`, 'bet_custom'),
+  ],
+  [Markup.button.callback(`${EMOJIS.BACK} Voltar`, 'back_games')],
+]);
+
+// Coin flip choice keyboard
+export const coinFlipChoiceKeyboard: Markup.Markup<InlineKeyboardMarkup> = Markup.inlineKeyboard([
+  [
+    Markup.button.callback(COIN_CHOICE_LABELS.heads, 'choice_heads'),
+    Markup.button.callback(COIN_CHOICE_LABELS.tails, 'choice_tails'),
+  ],
+  [Markup.button.callback(`${EMOJIS.BACK} Voltar`, 'back_bet_amount')],
+]);
+
+// Play again keyboard
+export const playAgainKeyboard: Markup.Markup<InlineKeyboardMarkup> = Markup.inlineKeyboard([
+  [
+    Markup.button.callback(`${EMOJIS.PLAY} Jogar Novamente`, 'game_coin_flip'),
+    Markup.button.callback(`${EMOJIS.GAMES} Outros Jogos`, 'main_play'),
+  ],
+  [Markup.button.callback(`${EMOJIS.HOME} Menu Principal`, 'back_main')],
 ]);
 

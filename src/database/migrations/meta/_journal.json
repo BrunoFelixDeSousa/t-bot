@@ -15,6 +15,13 @@
       "when": 1749499618342,
       "tag": "0001_medical_stephen_strange",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1749566884107,
+      "tag": "0002_rare_naoko",
+      "breakpoints": true
     }
   ]
 }

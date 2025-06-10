@@ -3,6 +3,7 @@ import {
   boolean,
   decimal,
   integer,
+  json,
   pgEnum,
   pgTable,
   serial,
@@ -28,6 +29,24 @@ export const transactionStatusEnum = pgEnum('transaction_status', [
   'completed',
   'failed',
   'cancelled',
+]);
+export const gameTypeEnum = pgEnum('game_type', [
+  'coin_flip',
+  'rock_paper_scissors',
+  'dice',
+  'domino',
+]);
+export const gameStatusEnum = pgEnum('game_status', [
+  'waiting',
+  'active',
+  'completed',
+  'cancelled',
+  'expired',
+]);
+export const matchTypeEnum = pgEnum('match_type', [
+  'single_player',
+  'multiplayer',
+  'tournament',
 ]);
 
 // Users table
@@ -66,14 +85,50 @@ export const transactions = pgTable('transactions', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// Games table
+export const games = pgTable('games', {
+  id: serial('id').primaryKey(),
+  creatorId: integer('creator_id')
+    .references(() => users.id)
+    .notNull(),
+  gameType: gameTypeEnum('game_type').notNull(),
+  matchType: matchTypeEnum('match_type').default('single_player').notNull(),
+  betAmount: decimal('bet_amount', { precision: 10, scale: 2 }).notNull(),
+  status: gameStatusEnum('status').default('waiting').notNull(),
+  gameData: json('game_data'), // Dados específicos do jogo
+  winnerId: integer('winner_id').references(() => users.id),
+  prize: decimal('prize', { precision: 10, scale: 2 }),
+  rakeAmount: decimal('rake_amount', { precision: 10, scale: 2 }),
+  expiresAt: timestamp('expires_at'),
+  startedAt: timestamp('started_at'),
+  completedAt: timestamp('completed_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   transactions: many(transactions),
+  createdGames: many(games, { relationName: 'creator' }),
+  wonGames: many(games, { relationName: 'winner' }),
 }));
 
 export const transactionsRelations = relations(transactions, ({ one }) => ({
   user: one(users, {
     fields: [transactions.userId],
     references: [users.id],
+  }),
+}));
+
+export const gamesRelations = relations(games, ({ one }) => ({
+  creator: one(users, {
+    fields: [games.creatorId],
+    references: [users.id],
+    relationName: 'creator',
+  }),
+  winner: one(users, {
+    fields: [games.winnerId],
+    references: [users.id],
+    relationName: 'winner',
   }),
 }));

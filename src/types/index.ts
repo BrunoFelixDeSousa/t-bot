@@ -10,6 +10,11 @@ export interface Config {
   database: {
     url: string;
   };
+  game: {
+    minBetAmount: number;
+    maxBetAmount: number;
+    rakePercentage: number;
+  };
   admin: {
     telegramIds: number[];
   };
