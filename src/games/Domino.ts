@@ -19,12 +19,23 @@ export class Domino extends BaseGame {
    * Inicializa um novo jogo de Dominó.
    * 
    * @param betAmount - Valor da aposta em reais
-   * @param player1Id - ID do primeiro jogador
-   * @param player2Id - ID do segundo jogador
+   * @param playerIds - Array com IDs dos jogadores (2-4 jogadores)
    */
-  constructor(betAmount: number, player1Id: number, player2Id: number) {
+  constructor(betAmount: number, playerIds: number[]) {
     super('domino', betAmount);
-    this.gameState = this.initializeGameState(player1Id, player2Id);
+    
+    // Validar número de jogadores
+    if (playerIds.length < 2 || playerIds.length > 4) {
+      throw new Error('Dominó suporta apenas 2 a 4 jogadores');
+    }
+    
+    // Validar IDs únicos
+    const uniqueIds = new Set(playerIds);
+    if (uniqueIds.size !== playerIds.length) {
+      throw new Error('IDs dos jogadores devem ser únicos');
+    }
+    
+    this.gameState = this.initializeGameState(playerIds);
     this.validateBetAmount();
   }
 
@@ -66,25 +77,29 @@ export class Domino extends BaseGame {
   /**
    * Inicializa o estado completo de um novo jogo de Dominó.
    * 
-   * Cria o deck, distribui 7 peças para cada jogador, inicializa a mesa
-   * vazia e define o primeiro jogador. Prepara todas as estruturas
+   * Cria o deck, distribui peças para cada jogador (7 para 2 jogadores, 6 para 3-4), 
+   * inicializa a mesa vazia e define o primeiro jogador. Prepara todas as estruturas
    * necessárias para começar uma partida.
    * 
-   * @param player1Id - ID do primeiro jogador
-   * @param player2Id - ID do segundo jogador
+   * @param playerIds - Array com IDs dos jogadores
    * 
    * @returns Estado inicial completo do jogo
    * 
    * @private
    */
-  private initializeGameState(player1Id: number, player2Id: number): DominoGameState {
+  private initializeGameState(playerIds: number[]): DominoGameState {
     const deck = this.createDeck();
     const playerHands: { [playerId: string]: DominoPiece[] } = {};
+    const scores: { [playerId: string]: number } = {};
     
-    // Distribuir 7 peças para cada jogador
-    const players = [player1Id.toString(), player2Id.toString()];
+    // Determinar número de peças por jogador baseado no número de jogadores
+    const piecesPerPlayer = playerIds.length === 2 ? 7 : 6;
+    
+    // Distribuir peças para cada jogador
+    const players = playerIds.map(id => id.toString());
     players.forEach(playerId => {
-      playerHands[playerId] = deck.splice(0, 7);
+      playerHands[playerId] = deck.splice(0, piecesPerPlayer);
+      scores[playerId] = 0;
     });
 
     return {
@@ -93,13 +108,10 @@ export class Domino extends BaseGame {
       playerHands,
       leftEnd: null,
       rightEnd: null,
-      currentPlayer: player1Id.toString(),
+      currentPlayer: players[0], // Primeiro jogador da lista
       round: 1,
       maxRounds: 1, // Por enquanto, apenas 1 rodada
-      scores: {
-        [player1Id.toString()]: 0,
-        [player2Id.toString()]: 0
-      },
+      scores,
       gameStarted: false,
       isBlocked: false
     };
@@ -285,7 +297,7 @@ export class Domino extends BaseGame {
    * Verifica se o jogo chegou ao fim por vitória ou bloqueio.
    * 
    * O jogo termina quando um jogador fica sem peças (vitória) ou quando
-   * ambos os jogadores não conseguem mais fazer jogadas (bloqueio).
+   * nenhum jogador consegue mais fazer jogadas (bloqueio).
    * 
    * @returns true se o jogo terminou, false se ainda está em andamento
    */
@@ -297,19 +309,13 @@ export class Domino extends BaseGame {
     if (someoneWon) return true;
     
     // Verificar se o jogo está bloqueado (ninguém pode jogar)
-    const currentPlayer = this.gameState.currentPlayer;
-    const availableMoves = this.getAvailableMoves(currentPlayer);
+    const playersWithMoves = players.filter(playerId => 
+      this.getAvailableMoves(playerId).length > 0
+    );
     
-    if (availableMoves.length === 0) {
-      // Verificar se o próximo jogador também não pode jogar
-      this.switchToNextPlayer();
-      const nextPlayerMoves = this.getAvailableMoves(this.gameState.currentPlayer);
-      this.switchToNextPlayer(); // Voltar ao jogador original
-      
-      if (nextPlayerMoves.length === 0) {
-        this.gameState.isBlocked = true;
-        return true;
-      }
+    if (playersWithMoves.length === 0) {
+      this.gameState.isBlocked = true;
+      return true;
     }
     
     return false;
@@ -322,12 +328,9 @@ export class Domino extends BaseGame {
    * Em bloqueio, conta-se os pontos nas mãos e quem tiver menos ganha.
    * Empate resulta em devolução das apostas.
    * 
-   * @param player1Id - ID do primeiro jogador
-   * @param player2Id - ID do segundo jogador
-   * 
    * @returns Resultado detalhado da partida com vencedor e prêmio
    */
-  public determineWinner(player1Id: string, player2Id: string): GameResult {
+  public determineWinner(): GameResult {
     if (!this.isGameOver()) {
       return {
         winner: 'tie',
@@ -338,54 +341,56 @@ export class Domino extends BaseGame {
       };
     }
     
-    const players = [player1Id, player2Id];
+    const players = Object.keys(this.gameState.playerHands);
     
     // Verificar se alguém ficou sem peças
     const winner = players.find(playerId => this.gameState.playerHands[playerId].length === 0);
     
     if (winner) {
-      const isPlayer1Winner = winner === player1Id;
+      // Vencedor por esvaziamento da mão
       const prize = this.calculatePrize(true, 1.9); // 90% RTP, 10% rake
       
       return {
-        winner: isPlayer1Winner ? 'player' : 'house', // Para compatibilidade
+        winner: 'player',
         playerChoice: 'domino',
         houseChoice: 'domino',
-        prize: isPlayer1Winner ? prize : 0,
-        details: `🏆 ${isPlayer1Winner ? 'Jogador 1' : 'Jogador 2'} venceu ficando sem peças!`
+        prize,
+        details: `🏆 Jogador ${winner} venceu ficando sem peças!`
       };
     }
     
-    // Jogo bloqueado - contar pontos nas mãos
-    const player1Points = this.gameState.playerHands[player1Id]
-      .reduce((sum, piece) => sum + piece.left + piece.right, 0);
-    const player2Points = this.gameState.playerHands[player2Id]
-      .reduce((sum, piece) => sum + piece.left + piece.right, 0);
+    // Jogo bloqueado - contar pontos nas mãos e encontrar o menor
+    const playerPoints = players.map(playerId => ({
+      playerId,
+      points: this.gameState.playerHands[playerId]
+        .reduce((sum, piece) => sum + piece.left + piece.right, 0)
+    }));
     
-    if (player1Points < player2Points) {
+    // Ordenar por pontos (menor primeiro)
+    playerPoints.sort((a, b) => a.points - b.points);
+    
+    const minPoints = playerPoints[0].points;
+    const winners = playerPoints.filter(p => p.points === minPoints);
+    
+    if (winners.length === 1) {
+      // Vencedor único
       const prize = this.calculatePrize(true, 1.9);
       return {
         winner: 'player',
         playerChoice: 'domino',
         houseChoice: 'domino',
         prize,
-        details: `🏆 Jogador 1 venceu! (${player1Points} vs ${player2Points} pontos)`
-      };
-    } else if (player2Points < player1Points) {
-      return {
-        winner: 'house',
-        playerChoice: 'domino',
-        houseChoice: 'domino',
-        prize: 0,
-        details: `🏆 Jogador 2 venceu! (${player2Points} vs ${player1Points} pontos)`
+        details: `🏆 Jogador ${winners[0].playerId} venceu com ${minPoints} pontos!`
       };
     } else {
+      // Empate - múltiplos jogadores com mesma pontuação
+      const winnersList = winners.map(w => w.playerId).join(', ');
       return {
         winner: 'tie',
         playerChoice: 'domino',
         houseChoice: 'domino',
         prize: this.betAmount, // Devolver aposta
-        details: `🤝 Empate! Ambos com ${player1Points} pontos`
+        details: `🤝 Empate entre jogadores ${winnersList} com ${minPoints} pontos cada!`
       };
     }
   }
@@ -464,7 +469,30 @@ export class Domino extends BaseGame {
       interface_text += "🔥 MESA: (vazia)\n\n";
     }
     
-    // Mão do jogador
+    // Status de todos os jogadores
+    const players = Object.keys(this.gameState.playerHands);
+    interface_text += "👥 JOGADORES:\n";
+    players.forEach((playerId, index) => {
+      const handSize = this.gameState.playerHands[playerId].length;
+      const isCurrentPlayer = this.gameState.currentPlayer === playerId;
+      const isThisPlayer = playerId === forPlayerId;
+      
+      let playerStatus = '';
+      if (isThisPlayer) {
+        playerStatus = `🎯 VOCÊ (${handSize} peças)`;
+      } else {
+        playerStatus = `👤 Jogador ${playerId} (${handSize} peças)`;
+      }
+      
+      if (isCurrentPlayer) {
+        playerStatus += ' ⚡';
+      }
+      
+      interface_text += `${index + 1}. ${playerStatus}\n`;
+    });
+    interface_text += "\n";
+    
+    // Mão do jogador atual
     const playerHand = this.gameState.playerHands[forPlayerId];
     if (playerHand) {
       interface_text += `🎯 SUA MÃO (${playerHand.length} peças):\n`;
@@ -489,7 +517,8 @@ export class Domino extends BaseGame {
           interface_text += "❌ Sem jogadas possíveis!\n";
         }
       } else {
-        interface_text += "💤 Aguardando adversário...\n";
+        const currentPlayerName = this.gameState.currentPlayer === forPlayerId ? 'VOCÊ' : `Jogador ${this.gameState.currentPlayer}`;
+        interface_text += `💤 Aguardando ${currentPlayerName}...\n`;
       }
     }
     
@@ -505,13 +534,12 @@ export class Domino extends BaseGame {
    * mais clara para criação de jogos.
    * 
    * @param betAmount - Valor da aposta em reais
-   * @param player1Id - ID do primeiro jogador
-   * @param player2Id - ID do segundo jogador
+   * @param playerIds - Array com IDs dos jogadores (2-4 jogadores)
    * 
    * @returns Nova instância configurada do jogo Dominó
    */
-  static create(betAmount: number, player1Id: number, player2Id: number): Domino {
-    return new Domino(betAmount, player1Id, player2Id);
+  static create(betAmount: number, playerIds: number[]): Domino {
+    return new Domino(betAmount, playerIds);
   }
 
   /**
@@ -521,7 +549,7 @@ export class Domino extends BaseGame {
     return {
       name: 'Dominó',
       emoji: '🀱',
-      description: 'Jogo clássico de dominó para 2 jogadores!',
+      description: 'Jogo clássico de dominó para 2-4 jogadores!',
       multiplier: 1.9,
       rtp: '90%',
       difficulty: 'Médio',

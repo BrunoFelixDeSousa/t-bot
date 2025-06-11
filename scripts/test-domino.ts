@@ -12,7 +12,7 @@ async function testDominoGame() {
     console.log('1. Testing Domino Game Class...');
     
     // Test game creation
-    const dominoGame = Domino.create(50.00, 1, 2);
+    const dominoGame = Domino.create(50.00, [1, 2]);
     console.log('✅ Domino game created successfully');
 
     // Test initial state

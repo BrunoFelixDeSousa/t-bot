@@ -702,13 +702,15 @@ export class GameService {
       
       // Se não há gameData, inicializar o jogo Domino
       if (!gameData || !gameData.deck) {
-        const dominoGame = Domino.create(parseFloat(game.betAmount), game.creatorId, game.player2Id!);
+        const playerIds = [game.creatorId, game.player2Id!];
+        const dominoGame = Domino.create(parseFloat(game.betAmount), playerIds);
         gameData = dominoGame.getGameState();
         await gameRepository.updateGameData(gameId, gameData);
       }
 
       // Criar instância do jogo com estado atual
-      const dominoGame = Domino.create(parseFloat(game.betAmount), game.creatorId, game.player2Id!);
+      const playerIds = [game.creatorId, game.player2Id!];
+      const dominoGame = Domino.create(parseFloat(game.betAmount), playerIds);
       dominoGame.setGameState(gameData);
 
       // Verificar se é a vez do jogador
@@ -728,7 +730,7 @@ export class GameService {
 
       // Verificar se o jogo terminou
       if (dominoGame.isGameOver()) {
-        const result = dominoGame.determineWinner(game.creatorId.toString(), game.player2Id!.toString());
+        const result = dominoGame.determineWinner();
         const multiplayerResult = await this.processDominoResult(game, result);
         
         return { 
@@ -795,7 +797,8 @@ export class GameService {
       }
 
       // Criar instância do jogo com estado atual
-      const dominoGame = Domino.create(parseFloat(game.betAmount), game.creatorId, game.player2Id!);
+      const playerIds = [game.creatorId, game.player2Id!];
+      const dominoGame = Domino.create(parseFloat(game.betAmount), playerIds);
       dominoGame.setGameState(gameData);
 
       const availableMoves = dominoGame.getAvailableMoves(userId.toString());
